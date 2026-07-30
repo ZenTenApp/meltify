@@ -1,0 +1,4 @@
+/meltify
+/dist/
+.DS_Store
+coverage.out

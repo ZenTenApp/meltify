@@ -1,0 +1,80 @@
+# meltify
+
+`meltify` prints a compact, colored export from an Ed25519 OpenSSH private key:
+
+- OpenSSH public key fingerprint
+- OpenSSH public key with derived `npub` comment
+- Nostr `npub` / hex public key
+- OpenSSH private key body
+- raw Ed25519 seed
+- 24-word charmbracelet/MELT seed phrase
+- Nostr `nsec` / hex secret key
+- Brave Sync 25th word
+
+## Install
+
+**Homebrew** (macOS/Linux):
+
+```sh
+brew install ZenTenApp/tap/meltify
+```
+
+**Go install**:
+
+```sh
+go install github.com/ZenTenApp/meltify/cmd/meltify@latest
+```
+
+**Docker**:
+
+```sh
+docker run --rm -v ~/.ssh:/root/.ssh:ro ghcr.io/zentenapp/meltify /root/.ssh/id_ed25519
+```
+
+**Binary releases**: download from the
+[Releases](https://github.com/ZenTenApp/meltify/releases) page.
+
+## Usage
+
+```sh
+meltify ~/.ssh/id_ed25519
+```
+
+Or read the private key from stdin:
+
+```sh
+cat ~/.ssh/id_ed25519 | meltify
+```
+
+Encrypted keys prompt for the existing SSH key passphrase.
+
+## Subaccount
+
+```sh
+meltify --subaccount account-name ~/.ssh/id_ed25519
+```
+
+Subaccounts derive a different deterministic Ed25519 key from the source key and subaccount name. The emitted OpenSSH private key keeps the same passphrase and uses bcrypt KDF rounds = 1.
+
+## Completions and man page
+
+Generate shell completions:
+
+```sh
+meltify completion bash
+meltify completion zsh
+meltify completion fish
+meltify completion powershell
+```
+
+Generate a roff man page:
+
+```sh
+meltify man
+```
+
+## Notes
+
+- Only Ed25519 OpenSSH private keys are supported.
+- No QR output.
+- Colors are enabled when stdout is a TTY and `NO_COLOR` is not set.

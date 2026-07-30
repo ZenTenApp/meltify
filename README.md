@@ -53,7 +53,7 @@ Encrypted keys prompt for the existing SSH key passphrase.
 meltify --brave-sync ~/.ssh/id_ed25519
 ```
 
-`--brave-sync` appends Brave Sync's daily 25th word to the displayed MELT seed phrase.
+`--brave-sync` prints only the MELT seed phrase with Brave Sync's daily 25th word appended.
 
 ## Subaccount
 

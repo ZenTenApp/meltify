@@ -62,7 +62,7 @@ func newRootCommand(stdin io.Reader) *cobra.Command {
 - 24-word charmbracelet/MELT seed phrase
 - Nostr nsec / hex secret key
 
-Use --brave-sync to append Brave Sync's daily 25th word to the displayed MELT seed phrase.
+Use --brave-sync to print only the MELT seed phrase with Brave Sync's daily 25th word appended.
 Encrypted keys prompt for the existing SSH key passphrase.`,
 		Example: `  meltify ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify
@@ -86,7 +86,7 @@ Encrypted keys prompt for the existing SSH key passphrase.`,
 		},
 	}
 	rootCmd.Flags().StringVar(&subaccount, "subaccount", "", "Derive a deterministic subaccount key from the source key and subaccount name")
-	rootCmd.Flags().BoolVar(&braveSync, "brave-sync", false, "Append Brave Sync's daily 25th word to the displayed MELT seed phrase")
+	rootCmd.Flags().BoolVar(&braveSync, "brave-sync", false, "Print only the MELT seed phrase with Brave Sync's daily 25th word appended")
 	rootCmd.AddCommand(newManCommand(rootCmd))
 	rootCmd.AddCommand(newCompletionCommand(rootCmd))
 	return rootCmd
@@ -302,6 +302,17 @@ func printMeltifyOutput(key *ed25519.PrivateKey, privateKeyPEM []byte, braveSync
 		return fmt.Errorf("could not generate 24-word MELT mnemonic: %w", err)
 	}
 
+	if braveSync {
+		braveWord, err := seedify.BraveSync25thWord()
+		if err != nil {
+			return fmt.Errorf("could not get Brave Sync word: %w", err)
+		}
+
+		fmt.Println()
+		out.doubleDelimitedBlock("25-WORD SEED PHRASE (charmbracelet/MELT + Brave Sync)", mnemonic24+" "+braveWord, true)
+		return nil
+	}
+
 	nostrKeys, err := seedify.DeriveNostrKeysWithHex(mnemonic24, "")
 	if err != nil {
 		return fmt.Errorf("could not derive Nostr keys: %w", err)
@@ -316,16 +327,6 @@ func printMeltifyOutput(key *ed25519.PrivateKey, privateKeyPEM []byte, braveSync
 	publicKeyLine := "ssh-ed25519 " + pubB64 + " " + nostrKeys.Npub
 	privB64 := base64.StdEncoding.EncodeToString(privateKeyBlock.Bytes)
 	seedHex := hex.EncodeToString(key.Seed())
-	seedPhraseLabel := "24-WORD SEED PHRASE (charmbracelet/MELT)"
-	seedPhraseOutput := mnemonic24
-	if braveSync {
-		braveWord, err := seedify.BraveSync25thWord()
-		if err != nil {
-			return fmt.Errorf("could not get Brave Sync word: %w", err)
-		}
-		seedPhraseLabel = "25-WORD SEED PHRASE (charmbracelet/MELT + Brave Sync)"
-		seedPhraseOutput += " " + braveWord
-	}
 
 	fmt.Println()
 	out.block("OPENSSH FINGERPRINT", ssh.FingerprintSHA256(sshPubKey), false)
@@ -341,7 +342,7 @@ func printMeltifyOutput(key *ed25519.PrivateKey, privateKeyPEM []byte, braveSync
 	out.blankPair()
 	out.block("ED25519 SEED", seedHex, true)
 	out.blankPair()
-	out.doubleDelimitedBlock(seedPhraseLabel, seedPhraseOutput, true)
+	out.doubleDelimitedBlock("24-WORD SEED PHRASE (charmbracelet/MELT)", mnemonic24, true)
 	out.blankPair()
 	out.rawBorderBlock("----- nSecKey / hexSecKey -----", []blockLine{
 		{text: nostrKeys.Nsec, sensitive: true},

@@ -90,6 +90,7 @@ jobs:
         if: ${{ env.NFPM_GPG_KEY != '' }}
         run: |
           echo "$NFPM_GPG_KEY" > "${{ runner.temp }}/gpg.key"
+          echo "GPG_KEY_PATH=${{ runner.temp }}/gpg.key" >> "$GITHUB_ENV"
 
       - uses: samuelmeuli/action-snapcraft@v3
 
@@ -102,7 +103,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           NFPM_DEFAULT_PASSPHRASE: ${{ secrets.NFPM_DEFAULT_PASSPHRASE }}
-          GPG_KEY_PATH: ${{ runner.temp }}/gpg.key
           GORELEASER_CURRENT_TAG: ${{ steps.version.outputs.tag }}
 
       - name: Send Matrix notification

@@ -9,7 +9,6 @@
 - raw Ed25519 seed
 - 24-word charmbracelet/MELT seed phrase
 - Nostr `nsec` / hex secret key
-- Brave Sync 25th word
 
 ## Install
 
@@ -47,6 +46,14 @@ cat ~/.ssh/id_ed25519 | meltify
 ```
 
 Encrypted keys prompt for the existing SSH key passphrase.
+
+## Brave Sync
+
+```sh
+meltify --brave-sync ~/.ssh/id_ed25519
+```
+
+`--brave-sync` appends Brave Sync's daily 25th word to the displayed MELT seed phrase.
 
 ## Subaccount
 

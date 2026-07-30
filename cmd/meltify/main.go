@@ -47,6 +47,7 @@ func execute(args []string, stdin io.Reader) error {
 
 func newRootCommand(stdin io.Reader) *cobra.Command {
 	var subaccount string
+	var braveSync bool
 
 	rootCmd := &cobra.Command{
 		Use:   "meltify [key-path]",
@@ -60,12 +61,13 @@ func newRootCommand(stdin io.Reader) *cobra.Command {
 - raw Ed25519 seed
 - 24-word charmbracelet/MELT seed phrase
 - Nostr nsec / hex secret key
-- Brave Sync 25th word
 
+Use --brave-sync to append Brave Sync's daily 25th word to the displayed MELT seed phrase.
 Encrypted keys prompt for the existing SSH key passphrase.`,
 		Example: `  meltify ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify
-  meltify --subaccount account-name ~/.ssh/id_ed25519`,
+  meltify --subaccount account-name ~/.ssh/id_ed25519
+  meltify --brave-sync ~/.ssh/id_ed25519`,
 		Version:      fmt.Sprintf("%s (commit %s, built %s)", version, commit, date),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -80,10 +82,11 @@ Encrypted keys prompt for the existing SSH key passphrase.`,
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, stdin)
+			return runWithOptions(keyPath, subaccount, braveSync, stdin)
 		},
 	}
 	rootCmd.Flags().StringVar(&subaccount, "subaccount", "", "Derive a deterministic subaccount key from the source key and subaccount name")
+	rootCmd.Flags().BoolVar(&braveSync, "brave-sync", false, "Append Brave Sync's daily 25th word to the displayed MELT seed phrase")
 	rootCmd.AddCommand(newManCommand(rootCmd))
 	rootCmd.AddCommand(newCompletionCommand(rootCmd))
 	return rootCmd
@@ -170,7 +173,7 @@ PowerShell:
 	}
 }
 
-func runWithOptions(keyPath, subaccount string, stdin io.Reader) error {
+func runWithOptions(keyPath, subaccount string, braveSync bool, stdin io.Reader) error {
 	keyBytes, err := readKey(keyPath, stdin)
 	if err != nil {
 		return err
@@ -189,7 +192,7 @@ func runWithOptions(keyPath, subaccount string, stdin io.Reader) error {
 		}
 	}
 
-	return printMeltifyOutput(key, privateKeyPEM)
+	return printMeltifyOutput(key, privateKeyPEM, braveSync)
 }
 
 func readKey(path string, stdin io.Reader) ([]byte, error) {
@@ -288,7 +291,7 @@ func deriveSubaccountSSHKey(sourceKey *ed25519.PrivateKey, subaccount string) ed
 	return ed25519.NewKeyFromSeed(derivedSeed[:])
 }
 
-func printMeltifyOutput(key *ed25519.PrivateKey, privateKeyPEM []byte) error {
+func printMeltifyOutput(key *ed25519.PrivateKey, privateKeyPEM []byte, braveSync bool) error {
 	sshPubKey, err := ssh.NewPublicKey(key.Public())
 	if err != nil {
 		return fmt.Errorf("failed to encode SSH public key: %w", err)
@@ -313,11 +316,18 @@ func printMeltifyOutput(key *ed25519.PrivateKey, privateKeyPEM []byte) error {
 	publicKeyLine := "ssh-ed25519 " + pubB64 + " " + nostrKeys.Npub
 	privB64 := base64.StdEncoding.EncodeToString(privateKeyBlock.Bytes)
 	seedHex := hex.EncodeToString(key.Seed())
-	braveWord, err := seedify.BraveSync25thWord()
-	if err != nil {
-		return fmt.Errorf("could not get Brave Sync word: %w", err)
+	seedPhraseLabel := "24-WORD SEED PHRASE (charmbracelet/MELT)"
+	seedPhraseOutput := mnemonic24
+	if braveSync {
+		braveWord, err := seedify.BraveSync25thWord()
+		if err != nil {
+			return fmt.Errorf("could not get Brave Sync word: %w", err)
+		}
+		seedPhraseLabel = "25-WORD SEED PHRASE (charmbracelet/MELT + Brave Sync)"
+		seedPhraseOutput += " " + braveWord
 	}
 
+	fmt.Println()
 	out.block("OPENSSH FINGERPRINT", ssh.FingerprintSHA256(sshPubKey), false)
 	out.blankPair()
 	out.block("OPENSSH PUBLIC KEY", publicKeyLine, false)
@@ -331,14 +341,12 @@ func printMeltifyOutput(key *ed25519.PrivateKey, privateKeyPEM []byte) error {
 	out.blankPair()
 	out.block("ED25519 SEED", seedHex, true)
 	out.blankPair()
-	out.doubleDelimitedBlock("24-WORD SEED PHRASE (charmbracelet/MELT)", mnemonic24, true)
+	out.doubleDelimitedBlock(seedPhraseLabel, seedPhraseOutput, true)
 	out.blankPair()
 	out.rawBorderBlock("----- nSecKey / hexSecKey -----", []blockLine{
 		{text: nostrKeys.Nsec, sensitive: true},
 		{text: nostrKeys.PrivKeyHex, sensitive: true},
 	})
-	out.blankPair()
-	out.block("25-WORD BRAVE-SYNC", braveWord, true)
 	out.blankPair()
 
 	return nil

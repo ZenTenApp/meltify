@@ -18,12 +18,17 @@ before:
     - sh -c 'go run ./cmd/meltify completion "zsh" >./completions/meltify.zsh'
     - sh -c 'go run ./cmd/meltify completion "fish" >./completions/meltify.fish'
     - sh -c 'go run ./cmd/meltify man | gzip -c >./manpages/meltify.1.gz'
+    - sh -c 'go run ./cmd/meltify-beldex completion "bash" >./completions/meltify-beldex.bash'
+    - sh -c 'go run ./cmd/meltify-beldex completion "zsh" >./completions/meltify-beldex.zsh'
+    - sh -c 'go run ./cmd/meltify-beldex completion "fish" >./completions/meltify-beldex.fish'
+    - sh -c 'go run ./cmd/meltify-beldex man | gzip -c >./manpages/meltify-beldex.1.gz'
 
 gomod:
   proxy: false
 
 builds:
-  - id: meltify
+  - &meltify_build
+    id: meltify
     main: ./cmd/meltify
     binary: meltify
     goos:
@@ -53,9 +58,16 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
+  - <<: *meltify_build
+    id: meltify-beldex
+    main: ./cmd/meltify-beldex
+    binary: meltify-beldex
 
 archives:
   - id: default
+    ids:
+      - meltify
+      - meltify-beldex
     formats:
       - tar.gz
     format_overrides:
@@ -78,7 +90,10 @@ archives:
       - completions/*
 
 nfpms:
-  - vendor: ZenTenApp
+  - ids:
+      - meltify
+      - meltify-beldex
+    vendor: ZenTenApp
     file_name_template: >-
       {{- trimsuffix .ConventionalFileName .ConventionalExtension -}}
       {{- if and (eq .Arm "6") (eq .ConventionalExtension ".deb") }}6{{ end -}}
@@ -96,6 +111,14 @@ nfpms:
         dst: /usr/share/zsh/site-functions/_meltify
       - src: ./manpages/meltify.1.gz
         dst: /usr/share/man/man1/meltify.1.gz
+      - src: ./completions/meltify-beldex.bash
+        dst: /etc/bash_completion.d/meltify-beldex
+      - src: ./completions/meltify-beldex.fish
+        dst: /usr/share/fish/vendor_completions.d/meltify-beldex.fish
+      - src: ./completions/meltify-beldex.zsh
+        dst: /usr/share/zsh/site-functions/_meltify-beldex
+      - src: ./manpages/meltify-beldex.1.gz
+        dst: /usr/share/man/man1/meltify-beldex.1.gz
     rpm:
       signature:
         key_file: '{{ if ne (index .Env "GPG_KEY_PATH") "" }}{{ .Env.GPG_KEY_PATH }}{{ else }}{{ end }}'
@@ -115,10 +138,15 @@ brews:
     goarm: 7
     install: |-
       bin.install "meltify"
+      bin.install "meltify-beldex"
       bash_completion.install "completions/meltify.bash" => "meltify"
+      bash_completion.install "completions/meltify-beldex.bash" => "meltify-beldex"
       zsh_completion.install "completions/meltify.zsh" => "_meltify"
+      zsh_completion.install "completions/meltify-beldex.zsh" => "_meltify-beldex"
       fish_completion.install "completions/meltify.fish"
+      fish_completion.install "completions/meltify-beldex.fish"
       man1.install "manpages/meltify.1.gz"
+      man1.install "manpages/meltify-beldex.1.gz"
 
 scoops:
   - repository:
@@ -133,8 +161,13 @@ nix:
       owner: ZenTenApp
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
       name: nur
+    install: |-
+      mkdir -p $out/bin
+      cp -vr ./meltify $out/bin/meltify
+      cp -vr ./meltify-beldex $out/bin/meltify-beldex
     extra_install: |-
       installManPage ./manpages/meltify.1.gz
+      installManPage ./manpages/meltify-beldex.1.gz
       installShellCompletion ./completions/*
 
 checksum:
@@ -195,6 +228,7 @@ dockers_v2:
   - id: meltify
     ids:
       - meltify
+      - meltify-beldex
     dockerfile: Dockerfile
     images:
       - ghcr.io/zentenapp/meltify

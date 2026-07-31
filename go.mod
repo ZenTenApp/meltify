@@ -3,6 +3,7 @@ module github.com/ZenTenApp/meltify
 go 1.25.6
 
 require (
+	filippo.io/edwards25519 v1.1.0
 	github.com/ZenTenApp/seedify v1.36.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/mattn/go-isatty v0.0.20
@@ -16,7 +17,6 @@ require (
 
 require (
 	ekyu.moe/cryptonight v0.3.0 // indirect
-	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
 	github.com/FactomProject/btcutilecc v0.0.0-20130527213604-d3a63a5752ec // indirect
 	github.com/ImVexed/fasturl v0.0.0-20230304231329-4e41488060f3 // indirect

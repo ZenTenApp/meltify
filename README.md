@@ -59,9 +59,22 @@ meltify --brave-sync ~/.ssh/id_ed25519
 
 ```sh
 meltify --subaccount account-name ~/.ssh/id_ed25519
+meltify -s account-name ~/.ssh/id_ed25519
 ```
 
 Subaccounts derive a different deterministic Ed25519 key from the source key and subaccount name. The emitted OpenSSH private key keeps the same passphrase and uses bcrypt KDF rounds = 1.
+
+## Beldex
+
+`meltify-beldex` derives a deterministic Beldex seed and addresses from the same Ed25519 OpenSSH key material:
+
+```sh
+meltify-beldex ~/.ssh/id_ed25519
+```
+
+The 25-word CryptoNote seed is unprefixed. A future `meltify-monero` command should therefore produce the same 25-word seed from the same key when no `--subaccount` is used.
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`.
 
 ## Completions and man page
 
@@ -72,13 +85,14 @@ meltify completion bash
 meltify completion zsh
 meltify completion fish
 meltify completion powershell
+meltify-beldex completion bash
 ```
 
 Generate a roff man page:
 
 ```sh
 meltify man
-```
+meltify-beldex man```
 
 ## Notes
 

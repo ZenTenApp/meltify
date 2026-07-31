@@ -1,4 +1,5 @@
-package main
+// Package termout provides terminal-aware block output helpers.
+package termout
 
 import (
 	"fmt"
@@ -9,16 +10,18 @@ import (
 	"github.com/muesli/termenv"
 )
 
-type cliOut struct {
+// CLIOut renders meltify-style blocks with optional terminal colors.
+type CLIOut struct {
 	color          bool
 	borderStyle    lipgloss.Style
 	valueStyle     lipgloss.Style
 	sensitiveStyle lipgloss.Style
 }
 
-func newCLIOut() *cliOut {
+// New creates a CLI output renderer for stdout.
+func New() *CLIOut {
 	color := isatty.IsTerminal(os.Stdout.Fd()) && os.Getenv("NO_COLOR") == ""
-	o := &cliOut{color: color}
+	o := &CLIOut{color: color}
 	if !color {
 		return o
 	}
@@ -69,27 +72,35 @@ func completeColor(truecolor, ansi256, ansi string) string {
 	return ansi
 }
 
-func (o *cliOut) render(style lipgloss.Style, s string) string {
+func (o *CLIOut) render(style lipgloss.Style, s string) string {
 	if !o.color {
 		return s
 	}
 	return style.Render(s)
 }
 
-func (o *cliOut) blankPair() {
+// Blank prints one blank line.
+func (o *CLIOut) Blank() {
+	fmt.Println()
+}
+
+// BlankPair prints two blank lines.
+func (o *CLIOut) BlankPair() {
 	fmt.Println()
 	fmt.Println()
 }
 
-func (o *cliOut) block(label, content string, sensitive bool) {
+// Block prints a ----- delimited block.
+func (o *CLIOut) Block(label, content string, sensitive bool) {
 	o.delimitedBlock("-----", label, content, sensitive)
 }
 
-func (o *cliOut) doubleDelimitedBlock(label, content string, sensitive bool) {
+// DoubleDelimitedBlock prints a ===== delimited block.
+func (o *CLIOut) DoubleDelimitedBlock(label, content string, sensitive bool) {
 	o.delimitedBlock("=====", label, content, sensitive)
 }
 
-func (o *cliOut) delimitedBlock(delimiter, label, content string, sensitive bool) {
+func (o *CLIOut) delimitedBlock(delimiter, label, content string, sensitive bool) {
 	begin := delimiter + "BEGIN " + label + delimiter
 	end := delimiter + "END " + label + delimiter
 	contentStyle := o.valueStyle
@@ -101,19 +112,21 @@ func (o *cliOut) delimitedBlock(delimiter, label, content string, sensitive bool
 	fmt.Println(o.render(o.borderStyle, end))
 }
 
-func (o *cliOut) rawBorderBlock(border string, lines []blockLine) {
+// RawBorderBlock prints a block where the same border line appears before and after the lines.
+func (o *CLIOut) RawBorderBlock(border string, lines []BlockLine) {
 	fmt.Println(o.render(o.borderStyle, border))
 	for _, line := range lines {
 		style := o.valueStyle
-		if line.sensitive {
+		if line.Sensitive {
 			style = o.sensitiveStyle
 		}
-		fmt.Println(o.render(style, line.text))
+		fmt.Println(o.render(style, line.Text))
 	}
 	fmt.Println(o.render(o.borderStyle, border))
 }
 
-type blockLine struct {
-	text      string
-	sensitive bool
+// BlockLine is a line rendered inside a raw-border block.
+type BlockLine struct {
+	Text      string
+	Sensitive bool
 }

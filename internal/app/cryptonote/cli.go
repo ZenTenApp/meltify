@@ -114,7 +114,7 @@ Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to d
 			return runWithOptions(keyPath, subaccount, seedOffset, stdin, coin)
 		},
 	}
-	rootCmd.Flags().StringVar(&subaccount, "subaccount", "", "Derive a deterministic subaccount key from the source key and subaccount name")
+	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and subaccount name")
 	if coin.SupportsSeedOffset {
 		rootCmd.Flags().StringVar(&seedOffset, "seed-offset", "", fmt.Sprintf("%s seed offset passphrase", coin.DisplayName))
 	}

@@ -68,7 +68,7 @@ Encrypted keys prompt for the existing SSH key passphrase.`,
 			return runWithOptions(keyPath, subaccount, braveSync, stdin)
 		},
 	}
-	rootCmd.Flags().StringVar(&subaccount, "subaccount", "", "Derive a deterministic subaccount key from the source key and subaccount name")
+	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and subaccount name")
 	rootCmd.Flags().BoolVar(&braveSync, "brave-sync", false, "Print only the MELT seed phrase with Brave Sync's daily 25th word appended")
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
 	rootCmd.AddCommand(cliutil.NewCompletionCommand(rootCmd, binaryName))

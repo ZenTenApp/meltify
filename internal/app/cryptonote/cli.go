@@ -96,7 +96,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo, coin CoinConfig) 
 Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to derive a deterministic subaccount key first.`, coin.BinaryName, coin.DisplayName),
 		Example: fmt.Sprintf(`  %[1]s ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | %[1]s
-  %[1]s --subaccount account-name ~/.ssh/id_ed25519`, coin.BinaryName),
+  %[1]s ~/.ssh/id_ed25519 --subaccount account-name`, coin.BinaryName),
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,

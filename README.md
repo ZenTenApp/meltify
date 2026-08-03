@@ -50,7 +50,7 @@ Encrypted keys prompt for the existing SSH key passphrase.
 ## Brave Sync
 
 ```sh
-meltify --brave-sync ~/.ssh/id_ed25519
+meltify ~/.ssh/id_ed25519 --brave-sync
 ```
 
 `--brave-sync` prints only the MELT seed phrase with Brave Sync's daily 25th word appended.
@@ -58,8 +58,8 @@ meltify --brave-sync ~/.ssh/id_ed25519
 ## Subaccount
 
 ```sh
-meltify --subaccount account-name ~/.ssh/id_ed25519
-meltify -s account-name ~/.ssh/id_ed25519
+meltify ~/.ssh/id_ed25519 --subaccount account-name
+meltify ~/.ssh/id_ed25519 -s account-name
 ```
 
 Subaccounts derive a different deterministic Ed25519 key from the source key and subaccount name. The emitted OpenSSH private key keeps the same passphrase and uses bcrypt KDF rounds = 1.

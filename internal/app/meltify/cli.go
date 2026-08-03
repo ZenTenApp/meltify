@@ -49,8 +49,8 @@ Use --brave-sync to print only the MELT seed phrase with Brave Sync's daily 25th
 Encrypted keys prompt for the existing SSH key passphrase.`,
 		Example: `  meltify ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify
-  meltify --subaccount account-name ~/.ssh/id_ed25519
-  meltify --brave-sync ~/.ssh/id_ed25519`,
+  meltify ~/.ssh/id_ed25519 --subaccount account-name
+  meltify ~/.ssh/id_ed25519 --brave-sync`,
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,

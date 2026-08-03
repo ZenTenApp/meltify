@@ -139,7 +139,7 @@ func (m *Material) ActivateSubaccount(subaccount string) error {
 	return nil
 }
 
-// DeriveSubaccountKey derives a deterministic Ed25519 subaccount key from a source key and subaccount name.
+// DeriveSubaccountKey derives a deterministic Ed25519 subaccount key from a source key and arbitrary subaccount label.
 func DeriveSubaccountKey(sourceKey *ed25519.PrivateKey, subaccount string) ed25519.PrivateKey {
 	subaccountHash := sha256.Sum256([]byte(subaccount))
 	seedMaterial := append(subaccountHash[:], sourceKey.Seed()...)

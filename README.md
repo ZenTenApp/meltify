@@ -58,11 +58,11 @@ meltify ~/.ssh/id_ed25519 --brave-sync
 ## Subaccount
 
 ```sh
-meltify ~/.ssh/id_ed25519 --subaccount account-name
-meltify ~/.ssh/id_ed25519 -s account-name
+meltify ~/.ssh/id_ed25519 --subaccount subaccount-label
+meltify ~/.ssh/id_ed25519 -s subaccount-label
 ```
 
-Subaccounts derive a different deterministic Ed25519 key from the source key and subaccount name. The emitted OpenSSH private key keeps the same passphrase and uses bcrypt KDF rounds = 1.
+Subaccounts derive a different deterministic Ed25519 key from the source key and an arbitrary subaccount label string. The emitted OpenSSH private key keeps the same passphrase and uses bcrypt KDF rounds = 1.
 
 ## Beldex
 

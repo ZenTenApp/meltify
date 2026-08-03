@@ -49,11 +49,11 @@ Encrypted keys prompt for the existing SSH key passphrase.
 
 ## Brave Sync
 
-```sh
-meltify ~/.ssh/id_ed25519 --brave-sync
-```
+`meltify-brave` prints only the MELT seed phrase with Brave Sync's daily 25th word appended.
 
-`--brave-sync` prints only the MELT seed phrase with Brave Sync's daily 25th word appended.
+```sh
+meltify-brave ~/.ssh/id_ed25519
+```
 
 ## Subaccount
 
@@ -85,6 +85,7 @@ meltify completion bash
 meltify completion zsh
 meltify completion fish
 meltify completion powershell
+meltify-brave completion bash
 meltify-beldex completion bash
 ```
 
@@ -92,7 +93,9 @@ Generate a roff man page:
 
 ```sh
 meltify man
-meltify-beldex man```
+meltify-brave man
+meltify-beldex man
+```
 
 ## Notes
 

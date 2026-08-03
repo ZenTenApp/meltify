@@ -30,7 +30,6 @@ func Execute(args []string, stdin io.Reader, info cliutil.VersionInfo) error {
 
 func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 	var subaccount string
-	var braveSync bool
 
 	rootCmd := &cobra.Command{
 		Use:   binaryName + " [key-path]",
@@ -45,12 +44,10 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 - 24-word charmbracelet/MELT seed phrase
 - Nostr nsec / hex secret key
 
-Use --brave-sync to print only the MELT seed phrase with Brave Sync's daily 25th word appended.
 Encrypted keys prompt for the existing SSH key passphrase.`,
 		Example: `  meltify ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify
-  meltify ~/.ssh/id_ed25519 --subaccount subaccount-label
-  meltify ~/.ssh/id_ed25519 --brave-sync`,
+  meltify ~/.ssh/id_ed25519 --subaccount subaccount-label`,
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -65,17 +62,16 @@ Encrypted keys prompt for the existing SSH key passphrase.`,
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, braveSync, stdin)
+			return runWithOptions(keyPath, subaccount, stdin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
-	rootCmd.Flags().BoolVar(&braveSync, "brave-sync", false, "Print only the MELT seed phrase with Brave Sync's daily 25th word appended")
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
 	rootCmd.AddCommand(cliutil.NewCompletionCommand(rootCmd, binaryName))
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount string, braveSync bool, stdin io.Reader) error {
+func runWithOptions(keyPath, subaccount string, stdin io.Reader) error {
 	material, err := sshkey.LoadEd25519Key(keyPath, stdin)
 	if err != nil {
 		return fmt.Errorf("could not load SSH key: %w", err)
@@ -83,10 +79,10 @@ func runWithOptions(keyPath, subaccount string, braveSync bool, stdin io.Reader)
 	if err := material.ActivateSubaccount(subaccount); err != nil {
 		return fmt.Errorf("could not activate subaccount: %w", err)
 	}
-	return printOutput(material.Key, material.PrivateKeyPEM, braveSync)
+	return printOutput(material.Key, material.PrivateKeyPEM)
 }
 
-func printOutput(key *ed25519.PrivateKey, privateKeyPEM []byte, braveSync bool) error {
+func printOutput(key *ed25519.PrivateKey, privateKeyPEM []byte) error {
 	sshPubKey, err := ssh.NewPublicKey(key.Public())
 	if err != nil {
 		return fmt.Errorf("failed to encode SSH public key: %w", err)
@@ -95,18 +91,6 @@ func printOutput(key *ed25519.PrivateKey, privateKeyPEM []byte, braveSync bool) 
 	mnemonic24, err := seedify.ToMnemonicWithLength(key, 24, "", false, 0) //nolint:mnd
 	if err != nil {
 		return fmt.Errorf("could not generate 24-word MELT mnemonic: %w", err)
-	}
-
-	out := termout.New()
-	if braveSync {
-		braveWord, err := seedify.BraveSync25thWord()
-		if err != nil {
-			return fmt.Errorf("could not get Brave Sync word: %w", err)
-		}
-
-		out.Blank()
-		out.DoubleDelimitedBlock("25-WORD SEED PHRASE (charmbracelet/MELT + Brave Sync)", mnemonic24+" "+braveWord, true)
-		return nil
 	}
 
 	nostrKeys, err := seedify.DeriveNostrKeysWithHex(mnemonic24, "")
@@ -124,6 +108,7 @@ func printOutput(key *ed25519.PrivateKey, privateKeyPEM []byte, braveSync bool) 
 	privB64 := base64.StdEncoding.EncodeToString(privateKeyBlock.Bytes)
 	seedHex := hex.EncodeToString(key.Seed())
 
+	out := termout.New()
 	out.Blank()
 	out.Block("OPENSSH FINGERPRINT", ssh.FingerprintSHA256(sshPubKey), false)
 	out.BlankPair()

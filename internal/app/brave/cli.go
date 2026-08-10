@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/ZenTenApp/meltify/internal/cliutil"
-	"github.com/ZenTenApp/meltify/internal/sshkey"
+	"github.com/ZenTenApp/meltify/internal/meltifyexec"
 	"github.com/ZenTenApp/meltify/internal/termout"
 	"github.com/ZenTenApp/seedify"
 	"github.com/spf13/cobra"
@@ -29,7 +29,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   binaryName + " [key-path]",
 		Short: "Export a Brave Sync-compatible MELT seed phrase from an Ed25519 OpenSSH key",
-		Long: `meltify-brave derives a deterministic 25-word seed phrase from an Ed25519 OpenSSH private key.
+		Long: `meltify-brave runs meltify to extract secret Ed25519 seed material, then derives a deterministic 25-word seed phrase.
 
 The output is the 24-word charmbracelet/MELT seed phrase plus Brave Sync's daily 25th word appended.
 Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
@@ -60,14 +60,12 @@ Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to d
 }
 
 func runWithOptions(keyPath, subaccount string, stdin io.Reader) error {
-	material, err := sshkey.LoadEd25519Key(keyPath, stdin)
+	seed, err := meltifyexec.ExtractSeed(keyPath, subaccount, stdin)
 	if err != nil {
-		return fmt.Errorf("could not load SSH key: %w", err)
+		return fmt.Errorf("could not extract key material with meltify: %w", err)
 	}
-	if err := material.ActivateSubaccount(subaccount); err != nil {
-		return fmt.Errorf("could not activate subaccount: %w", err)
-	}
-	return printOutput(material.Key)
+	key := ed25519.NewKeyFromSeed(seed)
+	return printOutput(&key)
 }
 
 func printOutput(key *ed25519.PrivateKey) error {

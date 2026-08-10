@@ -1,14 +1,8 @@
 # meltify
 
-`meltify` prints a compact, colored export from an Ed25519 OpenSSH private key:
+`meltify` extracts the raw 32-byte Ed25519 seed from an OpenSSH private key and prints it as lowercase hex.
 
-- OpenSSH public key fingerprint
-- OpenSSH public key with derived `npub` comment
-- Nostr `npub` / hex public key
-- OpenSSH private key body
-- raw Ed25519 seed
-- 24-word charmbracelet/MELT seed phrase
-- Nostr `nsec` / hex secret key
+This output is secret key material. Do not pipe it to logs or untrusted commands.
 
 ## Install
 
@@ -22,7 +16,11 @@ brew install ZenTenApp/tap/meltify
 
 ```sh
 go install github.com/ZenTenApp/meltify/cmd/meltify@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-brave@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-beldex@latest
 ```
+
+`meltify-brave` and `meltify-beldex` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`.
 
 **Docker**:
 
@@ -49,7 +47,7 @@ Encrypted keys prompt for the existing SSH key passphrase.
 
 ## Brave Sync
 
-`meltify-brave` prints only the MELT seed phrase with Brave Sync's daily 25th word appended.
+`meltify-brave` runs `meltify` internally, then prints only the MELT seed phrase with Brave Sync's daily 25th word appended.
 
 ```sh
 meltify-brave ~/.ssh/id_ed25519
@@ -66,7 +64,7 @@ Subaccounts derive a different deterministic Ed25519 key from the source key and
 
 ## Beldex
 
-`meltify-beldex` derives a deterministic Beldex seed and addresses from the same Ed25519 OpenSSH key material:
+`meltify-beldex` runs `meltify` internally, then derives a deterministic Beldex seed and addresses from the same Ed25519 OpenSSH key material:
 
 ```sh
 meltify-beldex ~/.ssh/id_ed25519

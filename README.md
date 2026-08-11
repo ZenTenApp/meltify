@@ -16,11 +16,13 @@ brew install ZenTenApp/tap/meltify
 
 ```sh
 go install github.com/ZenTenApp/meltify/cmd/meltify@latest
+
 go install github.com/ZenTenApp/meltify/cmd/meltify-brave@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-beldex@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-monero@latest
 ```
 
-`meltify-brave` and `meltify-beldex` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`.
+`meltify-brave`, `meltify-beldex`, and `meltify-monero` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`.
 
 **Docker**:
 
@@ -70,9 +72,21 @@ Subaccounts derive a different deterministic Ed25519 key from the source key and
 meltify-beldex ~/.ssh/id_ed25519
 ```
 
-The 25-word CryptoNote seed is unprefixed. A future `meltify-monero` command should therefore produce the same 25-word seed from the same key when no `--subaccount` is used.
+The 25-word CryptoNote seed is unprefixed. `meltify-monero` produces the same 25-word seed from the same key when no `--subaccount` is used.
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`.
+
+## Monero
+
+`meltify-monero` runs `meltify` internally, then derives a deterministic Monero legacy seed and addresses from the same Ed25519 OpenSSH key material:
+
+```sh
+meltify-monero ~/.ssh/id_ed25519
+```
+
+Without `--subaccount`, the 25-word Monero legacy seed is identical to the Beldex 25-word seed from the same key, because both are the unprefixed CryptoNote legacy mnemonic of the raw Ed25519 seed. `meltify-monero` additionally supports `--seed-offset <passphrase>` to derive Monero keys from the seed with an Electrum seed offset.
+
+It supports `--subaccount` / `-s`, `--seed-offset`, and the same completion/manpage commands as `meltify`.
 
 ## Completions and man page
 
@@ -85,6 +99,7 @@ meltify completion fish
 meltify completion powershell
 meltify-brave completion bash
 meltify-beldex completion bash
+meltify-monero completion bash
 ```
 
 Generate a roff man page:
@@ -93,6 +108,7 @@ Generate a roff man page:
 meltify man
 meltify-brave man
 meltify-beldex man
+meltify-monero man
 ```
 
 ## Notes

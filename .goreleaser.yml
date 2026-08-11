@@ -26,6 +26,10 @@ before:
     - sh -c 'go run ./cmd/meltify-beldex completion "zsh" >./completions/meltify-beldex.zsh'
     - sh -c 'go run ./cmd/meltify-beldex completion "fish" >./completions/meltify-beldex.fish'
     - sh -c 'go run ./cmd/meltify-beldex man | gzip -c >./manpages/meltify-beldex.1.gz'
+    - sh -c 'go run ./cmd/meltify-monero completion "bash" >./completions/meltify-monero.bash'
+    - sh -c 'go run ./cmd/meltify-monero completion "zsh" >./completions/meltify-monero.zsh'
+    - sh -c 'go run ./cmd/meltify-monero completion "fish" >./completions/meltify-monero.fish'
+    - sh -c 'go run ./cmd/meltify-monero man | gzip -c >./manpages/meltify-monero.1.gz'
 
 gomod:
   proxy: false
@@ -70,6 +74,10 @@ builds:
     id: meltify-beldex
     main: ./cmd/meltify-beldex
     binary: meltify-beldex
+  - <<: *meltify_build
+    id: meltify-monero
+    main: ./cmd/meltify-monero
+    binary: meltify-monero
 
 archives:
   - id: default
@@ -77,6 +85,7 @@ archives:
       - meltify
       - meltify-brave
       - meltify-beldex
+      - meltify-monero
     formats:
       - tar.gz
     format_overrides:
@@ -103,6 +112,7 @@ nfpms:
       - meltify
       - meltify-brave
       - meltify-beldex
+      - meltify-monero
     vendor: ZenTenApp
     file_name_template: >-
       {{- trimsuffix .ConventionalFileName .ConventionalExtension -}}
@@ -137,6 +147,14 @@ nfpms:
         dst: /usr/share/zsh/site-functions/_meltify-beldex
       - src: ./manpages/meltify-beldex.1.gz
         dst: /usr/share/man/man1/meltify-beldex.1.gz
+      - src: ./completions/meltify-monero.bash
+        dst: /etc/bash_completion.d/meltify-monero
+      - src: ./completions/meltify-monero.fish
+        dst: /usr/share/fish/vendor_completions.d/meltify-monero.fish
+      - src: ./completions/meltify-monero.zsh
+        dst: /usr/share/zsh/site-functions/_meltify-monero
+      - src: ./manpages/meltify-monero.1.gz
+        dst: /usr/share/man/man1/meltify-monero.1.gz
     rpm:
       signature:
         key_file: '{{ if ne (index .Env "GPG_KEY_PATH") "" }}{{ .Env.GPG_KEY_PATH }}{{ else }}{{ end }}'
@@ -158,18 +176,23 @@ brews:
       bin.install "meltify"
       bin.install "meltify-brave"
       bin.install "meltify-beldex"
+      bin.install "meltify-monero"
       bash_completion.install "completions/meltify.bash" => "meltify"
       bash_completion.install "completions/meltify-brave.bash" => "meltify-brave"
       bash_completion.install "completions/meltify-beldex.bash" => "meltify-beldex"
+      bash_completion.install "completions/meltify-monero.bash" => "meltify-monero"
       zsh_completion.install "completions/meltify.zsh" => "_meltify"
       zsh_completion.install "completions/meltify-brave.zsh" => "_meltify-brave"
       zsh_completion.install "completions/meltify-beldex.zsh" => "_meltify-beldex"
+      zsh_completion.install "completions/meltify-monero.zsh" => "_meltify-monero"
       fish_completion.install "completions/meltify.fish"
       fish_completion.install "completions/meltify-brave.fish"
       fish_completion.install "completions/meltify-beldex.fish"
+      fish_completion.install "completions/meltify-monero.fish"
       man1.install "manpages/meltify.1.gz"
       man1.install "manpages/meltify-brave.1.gz"
       man1.install "manpages/meltify-beldex.1.gz"
+      man1.install "manpages/meltify-monero.1.gz"
 
 scoops:
   - repository:
@@ -189,10 +212,12 @@ nix:
       cp -vr ./meltify $out/bin/meltify
       cp -vr ./meltify-brave $out/bin/meltify-brave
       cp -vr ./meltify-beldex $out/bin/meltify-beldex
+      cp -vr ./meltify-monero $out/bin/meltify-monero
     extra_install: |-
       installManPage ./manpages/meltify.1.gz
       installManPage ./manpages/meltify-brave.1.gz
       installManPage ./manpages/meltify-beldex.1.gz
+      installManPage ./manpages/meltify-monero.1.gz
       installShellCompletion ./completions/*
 
 checksum:
@@ -255,6 +280,7 @@ dockers_v2:
       - meltify
       - meltify-brave
       - meltify-beldex
+      - meltify-monero
     dockerfile: Dockerfile
     images:
       - ghcr.io/zentenapp/meltify

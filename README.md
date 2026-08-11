@@ -20,9 +20,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-brave@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-beldex@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-monero@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-polyseed@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, and `meltify-monero` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`.
 
 **Docker**:
 
@@ -88,7 +89,17 @@ Without `--subaccount`, the 25-word Monero legacy seed is identical to the Belde
 
 It supports `--subaccount` / `-s`, `--seed-offset`, and the same completion/manpage commands as `meltify`.
 
-## Completions and man page
+## Polyseed (Monero 16-word)
+
+`meltify-polyseed` runs `meltify` internally, then derives a deterministic 16-word Monero polyseed (Polyseed format) and Monero addresses from the same Ed25519 OpenSSH key material:
+
+```sh
+meltify-polyseed ~/.ssh/id_ed25519
+```
+
+The polyseed embeds a creation date (the "birthday"), which defaults to January 1 of the current year (matching the seedify CLI). Override it with `--birthday YYYY-MM`; the same key, subaccount, and birthday always produce the same phrase. A `--seed-offset <passphrase>` is also supported for Feather-compatible wallet seed offsets.
+
+It supports `--subaccount` / `-s`, `--seed-offset`, `--birthday`, and the same completion/manpage commands as `meltify`.
 
 Generate shell completions:
 
@@ -100,6 +111,7 @@ meltify completion powershell
 meltify-brave completion bash
 meltify-beldex completion bash
 meltify-monero completion bash
+meltify-polyseed completion bash
 ```
 
 Generate a roff man page:
@@ -109,6 +121,7 @@ meltify man
 meltify-brave man
 meltify-beldex man
 meltify-monero man
+meltify-polyseed man
 ```
 
 ## Notes

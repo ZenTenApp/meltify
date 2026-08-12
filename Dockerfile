@@ -9,6 +9,7 @@ ARG TARGETVARIANT
 # For ARM variants (e.g., arm/v7), TARGETVARIANT contains the variant (v7).
 # The expansion ${TARGETVARIANT:+/${TARGETVARIANT}} adds /v7 only when set.
 COPY ${TARGETOS}/${TARGETARCH}${TARGETVARIANT:+/${TARGETVARIANT}}/meltify /usr/local/bin/meltify
+COPY ${TARGETOS}/${TARGETARCH}${TARGETVARIANT:+/${TARGETVARIANT}}/meltify-brave /usr/local/bin/meltify-brave
 COPY ${TARGETOS}/${TARGETARCH}${TARGETVARIANT:+/${TARGETVARIANT}}/meltify-beldex /usr/local/bin/meltify-beldex
 
 ENTRYPOINT [ "/usr/local/bin/meltify" ]

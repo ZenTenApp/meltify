@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/ZenTenApp/meltify/internal/cliutil"
-	"github.com/ZenTenApp/meltify/internal/sshkey"
+	"github.com/ZenTenApp/meltify/internal/meltifyexec"
 	"github.com/ZenTenApp/meltify/internal/termout"
 	"github.com/ZenTenApp/seedify"
 	"github.com/spf13/cobra"
@@ -96,7 +96,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo, coin CoinConfig) 
 Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to derive a deterministic subaccount key first.`, coin.BinaryName, coin.DisplayName),
 		Example: fmt.Sprintf(`  %[1]s ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | %[1]s
-  %[1]s --subaccount account-name ~/.ssh/id_ed25519`, coin.BinaryName),
+  %[1]s ~/.ssh/id_ed25519 --subaccount subaccount-label`, coin.BinaryName),
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -114,7 +114,7 @@ Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to d
 			return runWithOptions(keyPath, subaccount, seedOffset, stdin, coin)
 		},
 	}
-	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and subaccount name")
+	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
 	if coin.SupportsSeedOffset {
 		rootCmd.Flags().StringVar(&seedOffset, "seed-offset", "", fmt.Sprintf("%s seed offset passphrase", coin.DisplayName))
 	}
@@ -124,14 +124,12 @@ Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to d
 }
 
 func runWithOptions(keyPath, subaccount, seedOffset string, stdin io.Reader, coin CoinConfig) error {
-	material, err := sshkey.LoadEd25519Key(keyPath, stdin)
+	seed, err := meltifyexec.ExtractSeed(keyPath, subaccount, stdin)
 	if err != nil {
-		return fmt.Errorf("could not load SSH key: %w", err)
+		return fmt.Errorf("could not extract key material with meltify: %w", err)
 	}
-	if err := material.ActivateSubaccount(subaccount); err != nil {
-		return fmt.Errorf("could not activate subaccount: %w", err)
-	}
-	return printCoinOutput(material.Key, seedOffset, coin)
+	key := ed25519.NewKeyFromSeed(seed)
+	return printCoinOutput(&key, seedOffset, coin)
 }
 
 func printCoinOutput(key *ed25519.PrivateKey, seedOffset string, coin CoinConfig) error {

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ZenTenApp/meltify/internal/cliutil"
@@ -127,27 +125,21 @@ func subaddressLines(subaddresses []string) []termout.BlockLine {
 // timestamp. The default is January 1 of the current year, matching the seedify
 // CLI. Returns the timestamp and a YYYY-MM label for display.
 func resolveBirthday(birthday string) (uint64, string, error) {
-	year, month := time.Now().Year(), time.January
+	var ts time.Time
 	if birthday != "" {
-		parts := strings.SplitN(birthday, "-", 2)
-		if len(parts) != 2 {
-			return 0, "", fmt.Errorf("invalid --birthday %q: use YYYY-MM (e.g. 2026-01)", birthday)
-		}
-		y, err := strconv.Atoi(parts[0])
+		parsed, err := time.Parse("2006-01", birthday)
 		if err != nil {
 			return 0, "", fmt.Errorf("invalid --birthday %q: use YYYY-MM (e.g. 2026-01)", birthday)
 		}
-		m, err := strconv.Atoi(parts[1])
-		if err != nil || m < 1 || m > 12 {
-			return 0, "", fmt.Errorf("invalid --birthday %q: use YYYY-MM (e.g. 2026-01)", birthday)
-		}
-		year, month = y, time.Month(m)
+		ts = parsed
+	} else {
+		ts = time.Date(time.Now().Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
 	}
 
-	ts := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	label := ts.Format("2006-01")
-	if uint64(ts.Unix()) < polyseedMinBirthdayUnix {
+	unix := ts.Unix()
+	if unix < int64(polyseedMinBirthdayUnix) {
 		return 0, "", fmt.Errorf("--birthday %s is before the Polyseed era (November 2021); the earliest supported date is 2021-11", label)
 	}
-	return uint64(ts.Unix()), label, nil
+	return uint64(unix), label, nil //nolint:gosec // unix is validated >= 2021-11, so it is always non-negative.
 }

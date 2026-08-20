@@ -56,7 +56,14 @@ func ExtractSeed(keyPath, subaccount string, stdin io.Reader) ([]byte, error) {
 func findMeltifyExecutable() (string, error) {
 	self, err := os.Executable()
 	if err == nil {
-		candidate := filepath.Join(filepath.Dir(self), "meltify")
+		sibling := "meltify"
+		// On Windows the released binaries carry an .exe extension (e.g.
+		// meltify-beldex.exe beside meltify.exe), so look for the sibling with
+		// the same extension convention as the running executable.
+		if strings.HasSuffix(strings.ToLower(self), ".exe") {
+			sibling = "meltify.exe"
+		}
+		candidate := filepath.Join(filepath.Dir(self), sibling)
 		if isExecutable(candidate) {
 			return candidate, nil
 		}
@@ -74,6 +81,11 @@ func isExecutable(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil || info.IsDir() {
 		return false
+	}
+	// Windows does not expose POSIX execute permission bits, so mode bits are
+	// meaningless there. An existing non-directory .exe is treated as runnable.
+	if strings.HasSuffix(strings.ToLower(path), ".exe") {
+		return true
 	}
 	return info.Mode()&0o111 != 0
 }

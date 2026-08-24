@@ -30,8 +30,7 @@ type CoinConfig struct {
 	Symbol             string
 	SeedLabel          string
 	AddressLabel       string
-	SupportsSeedOffset bool
-	DeriveAddresses    func(seed string, count int, seedOffset string) (AddressSet, error)
+	DeriveAddresses    func(seed string, count int) (AddressSet, error)
 }
 
 // BeldexConfig configures meltify-beldex.
@@ -41,7 +40,7 @@ var BeldexConfig = CoinConfig{
 	Symbol:       "BDX",
 	SeedLabel:    "25-WORD BELDEX (BDX) SEED",
 	AddressLabel: "BELDEX ADDRESSES FROM 25-WORD SEED",
-	DeriveAddresses: func(seed string, count int, _ string) (AddressSet, error) {
+	DeriveAddresses: func(seed string, count int) (AddressSet, error) {
 		keys, err := seedify.DeriveBeldexKeysFromLegacySeed(seed, count)
 		if err != nil {
 			return AddressSet{}, fmt.Errorf("derive Beldex keys from legacy seed: %w", err)
@@ -57,9 +56,8 @@ var MoneroConfig = CoinConfig{
 	Symbol:             "XMR",
 	SeedLabel:          "25-WORD MONERO LEGACY SEED",
 	AddressLabel:       "MONERO ADDRESSES FROM 25-WORD LEGACY SEED",
-	SupportsSeedOffset: true,
-	DeriveAddresses: func(seed string, count int, seedOffset string) (AddressSet, error) {
-		keys, err := seedify.DeriveMoneroKeysFromLegacySeedWithSeedOffset(seed, count, seedOffset)
+	DeriveAddresses: func(seed string, count int) (AddressSet, error) {
+		keys, err := seedify.DeriveMoneroKeysFromLegacySeed(seed, count)
 		if err != nil {
 			return AddressSet{}, fmt.Errorf("derive Monero keys from legacy seed: %w", err)
 		}
@@ -86,7 +84,6 @@ func Execute(args []string, stdin io.Reader, info cliutil.VersionInfo, coin Coin
 
 func newRootCommand(stdin io.Reader, info cliutil.VersionInfo, coin CoinConfig) *cobra.Command {
 	var subaccount string
-	var seedOffset string
 
 	rootCmd := &cobra.Command{
 		Use:   coin.BinaryName + " [key-path]",
@@ -111,34 +108,31 @@ Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to d
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, seedOffset, stdin, coin)
+			return runWithOptions(keyPath, subaccount, stdin, coin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
-	if coin.SupportsSeedOffset {
-		rootCmd.Flags().StringVar(&seedOffset, "seed-offset", "", fmt.Sprintf("%s seed offset passphrase", coin.DisplayName))
-	}
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
 	rootCmd.AddCommand(cliutil.NewCompletionCommand(rootCmd, coin.BinaryName))
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount, seedOffset string, stdin io.Reader, coin CoinConfig) error {
+func runWithOptions(keyPath, subaccount string, stdin io.Reader, coin CoinConfig) error {
 	seed, err := meltifyexec.ExtractSeed(keyPath, subaccount, stdin)
 	if err != nil {
 		return fmt.Errorf("could not extract key material with meltify: %w", err)
 	}
 	key := ed25519.NewKeyFromSeed(seed)
-	return printCoinOutput(&key, seedOffset, coin)
+	return printCoinOutput(&key, coin)
 }
 
-func printCoinOutput(key *ed25519.PrivateKey, seedOffset string, coin CoinConfig) error {
+func printCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
 	seed, err := legacySeedFromKey(key)
 	if err != nil {
 		return fmt.Errorf("failed to derive %s seed: %w", coin.DisplayName, err)
 	}
 
-	addresses, err := coin.DeriveAddresses(seed, defaultAddressCount, seedOffset)
+	addresses, err := coin.DeriveAddresses(seed, defaultAddressCount)
 	if err != nil {
 		return fmt.Errorf("failed to derive %s addresses: %w", coin.DisplayName, err)
 	}

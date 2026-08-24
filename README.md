@@ -86,9 +86,9 @@ It supports `--subaccount` / `-s` and the same completion/manpage commands as `m
 meltify-monero ~/.ssh/id_ed25519
 ```
 
-Without `--subaccount`, the 25-word Monero legacy seed is identical to the Beldex 25-word seed from the same key, because both are the unprefixed CryptoNote legacy mnemonic of the raw Ed25519 seed. `meltify-monero` additionally supports `--seed-offset <passphrase>` to derive Monero keys from the seed with an Electrum seed offset.
+Without `--subaccount`, the 25-word Monero legacy seed is identical to the Beldex 25-word seed from the same key, because both are the unprefixed CryptoNote legacy mnemonic of the raw Ed25519 seed.
 
-It supports `--subaccount` / `-s`, `--seed-offset`, and the same completion/manpage commands as `meltify`.
+It supports `--subaccount` / `-s`, and the same completion/manpage commands as `meltify`.
 
 ## Polyseed (Monero 16-word)
 

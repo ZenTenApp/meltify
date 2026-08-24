@@ -25,12 +25,12 @@ type AddressSet struct {
 
 // CoinConfig describes one CryptoNote-family executable.
 type CoinConfig struct {
-	BinaryName         string
-	DisplayName        string
-	Symbol             string
-	SeedLabel          string
-	AddressLabel       string
-	DeriveAddresses    func(seed string, count int) (AddressSet, error)
+	BinaryName      string
+	DisplayName     string
+	Symbol          string
+	SeedLabel       string
+	AddressLabel    string
+	DeriveAddresses func(seed string, count int) (AddressSet, error)
 }
 
 // BeldexConfig configures meltify-beldex.
@@ -51,11 +51,11 @@ var BeldexConfig = CoinConfig{
 
 // MoneroConfig configures the future meltify-monero executable.
 var MoneroConfig = CoinConfig{
-	BinaryName:         "meltify-monero",
-	DisplayName:        "Monero",
-	Symbol:             "XMR",
-	SeedLabel:          "25-WORD MONERO LEGACY SEED",
-	AddressLabel:       "MONERO ADDRESSES FROM 25-WORD LEGACY SEED",
+	BinaryName:   "meltify-monero",
+	DisplayName:  "Monero",
+	Symbol:       "XMR",
+	SeedLabel:    "25-WORD MONERO LEGACY SEED",
+	AddressLabel: "MONERO ADDRESSES FROM 25-WORD LEGACY SEED",
 	DeriveAddresses: func(seed string, count int) (AddressSet, error) {
 		keys, err := seedify.DeriveMoneroKeysFromLegacySeed(seed, count)
 		if err != nil {

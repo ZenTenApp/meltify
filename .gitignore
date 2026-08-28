@@ -1,4 +1,5 @@
 /meltify
+/main
 /dist/
 .DS_Store
 coverage.out

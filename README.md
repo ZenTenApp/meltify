@@ -68,13 +68,15 @@ Subaccounts derive a different deterministic Ed25519 key from the source key and
 
 ## Beldex
 
-`meltify-beldex` runs `meltify` internally, then derives a deterministic Beldex seed and addresses from the same Ed25519 OpenSSH key material:
+`meltify-beldex` runs `meltify` internally, then derives a deterministic Beldex seed, addresses, and BChat chat ID from the same Ed25519 OpenSSH key material:
 
 ```sh
 meltify-beldex ~/.ssh/id_ed25519
 ```
 
 The 25-word CryptoNote seed is unprefixed. `meltify-monero` produces the same 25-word seed from the same key when no `--subaccount` is used.
+
+The BChat chat ID is the raw Ed25519 seed's X25519 public key prefixed with the DJB type tag `0xBD` (66 hex chars, e.g. `bd27b58b…3952`), exactly how the BChat Android app derives it (`cryptoSignSeedKeypair` → `convertKeyPairEd25519ToCurve25519` → prepend `0xBD`). It is derived from the raw seed, not the scReduced seed used for the CryptoNote legacy seed/addresses.
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`.
 

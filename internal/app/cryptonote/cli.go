@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ZenTenApp/meltify/internal/app/bchat"
 	"github.com/ZenTenApp/meltify/internal/cliutil"
 	"github.com/ZenTenApp/meltify/internal/meltifyexec"
 	"github.com/ZenTenApp/meltify/internal/termout"
@@ -31,6 +32,11 @@ type CoinConfig struct {
 	SeedLabel       string
 	AddressLabel    string
 	DeriveAddresses func(seed string, count int) (AddressSet, error)
+	// ExtraLabel and DeriveExtra render an additional identity block after the
+	// seed. DeriveExtra receives the raw 32-byte Ed25519 seed (not the scReduced
+	// CryptoNote seed). Empty DeriveExtra disables the block.
+	ExtraLabel  string
+	DeriveExtra func(seed []byte) (string, error)
 }
 
 // BeldexConfig configures meltify-beldex.
@@ -46,6 +52,14 @@ var BeldexConfig = CoinConfig{
 			return AddressSet{}, fmt.Errorf("derive Beldex keys from legacy seed: %w", err)
 		}
 		return AddressSet{PrimaryAddress: keys.PrimaryAddress, Subaddresses: keys.Subaddresses}, nil
+	},
+	ExtraLabel: "BELDEX CHAT ID (BCHAT)",
+	DeriveExtra: func(seed []byte) (string, error) {
+		chatID, err := bchat.DeriveChatID(seed)
+		if err != nil {
+			return "", fmt.Errorf("derive Beldex chat id: %w", err)
+		}
+		return chatID, nil
 	},
 }
 
@@ -140,6 +154,14 @@ func printCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
 	out := termout.New()
 	out.Blank()
 	out.DoubleDelimitedBlock(coin.SeedLabel, seed, true)
+	if coin.DeriveExtra != nil {
+		extra, extraErr := coin.DeriveExtra(key.Seed())
+		if extraErr != nil {
+			return fmt.Errorf("failed to derive %s extra output: %w", coin.DisplayName, extraErr)
+		}
+		out.BlankPair()
+		out.Block(coin.ExtraLabel, extra, false)
+	}
 	out.BlankPair()
 	out.Block(strings.ToUpper(coin.DisplayName)+" PRIMARY ADDRESS", addresses.PrimaryAddress, false)
 	if len(addresses.Subaddresses) > 0 {

@@ -19,9 +19,17 @@ const (
 	moneroChecksumPrefix  = 3
 )
 
+// legacySeedBytesFromKey returns the 32-byte seed encoded by the legacy
+// 25-word CryptoNote mnemonic: scReduce32 of the raw Ed25519 seed. This is
+// the exact byte sequence a wallet (or BChat) recovers when restoring the
+// printed phrase, so any identity derived from it matches what the wallet
+// derives from the phrase.
+func legacySeedBytesFromKey(key *ed25519.PrivateKey) []byte {
+	return scReduce32(key.Seed())
+}
+
 func legacySeedFromKey(key *ed25519.PrivateKey) (string, error) {
-	reduced := scReduce32(key.Seed())
-	words, err := moneroLegacyBytesToWords(reduced)
+	words, err := moneroLegacyBytesToWords(legacySeedBytesFromKey(key))
 	if err != nil {
 		return "", err
 	}

@@ -115,8 +115,9 @@ It supports `--subaccount` / `-s`, `--seed-offset`, `--birthday`, and the same c
 - raw Ed25519 seed
 - 24-word charmbracelet/MELT seed phrase
 - Nostr `nsec` / hex secret key
+- wallet addresses: bitcoin (bc1), ethereum, solana, tron
 
-All forms come from the same master seed, so the SSH key, raw seed, and MELT phrase are the same secret in different encodings; the Nostr keys are deterministically derived from it. `meltify-info` loads the key itself and supports `--subaccount` / `-s` plus the same completion/manpage commands as `meltify`.
+All forms come from the same master seed, so the SSH key, raw seed, and MELT phrase are the same secret in different encodings; the Nostr keys and the four wallet addresses are deterministically derived from the MELT phrase via the standard BIP84/BIP44/SLIP-0010 paths (`bc1q…` native segwit, `0x…` Ethereum, Base58 Solana, `T…` Tron). `meltify-info` loads the key itself and supports `--subaccount` / `-s` plus the same completion/manpage commands as `meltify`.
 
 ## Completions and man page
 

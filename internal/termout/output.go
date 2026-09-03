@@ -14,6 +14,8 @@ import (
 type CLIOut struct {
 	color          bool
 	borderStyle    lipgloss.Style
+	sectionStyle   lipgloss.Style
+	labelStyle     lipgloss.Style
 	valueStyle     lipgloss.Style
 	sensitiveStyle lipgloss.Style
 }
@@ -28,6 +30,8 @@ func New() *CLIOut {
 
 	palette := terminalPalette()
 	o.borderStyle = lipgloss.NewStyle().Bold(true).Foreground(palette.text)
+	o.sectionStyle = lipgloss.NewStyle().Bold(true).Foreground(palette.text)
+	o.labelStyle = lipgloss.NewStyle().Foreground(palette.text)
 	o.valueStyle = lipgloss.NewStyle().Foreground(palette.public)
 	o.sensitiveStyle = lipgloss.NewStyle().Foreground(palette.private)
 	return o
@@ -129,4 +133,71 @@ func (o *CLIOut) RawBorderBlock(border string, lines []BlockLine) {
 type BlockLine struct {
 	Text      string
 	Sensitive bool
+}
+
+// Section prints a seedify-style [title] section header.
+func (o *CLIOut) Section(title string) {
+	fmt.Println(o.render(o.sectionStyle, "["+title+"]"))
+}
+
+// Sectionf prints a formatted [title] section header.
+func (o *CLIOut) Sectionf(format string, args ...any) {
+	o.Section(fmt.Sprintf(format, args...))
+}
+
+// Value prints a non-secret datum such as an address or public key.
+func (o *CLIOut) Value(s string) {
+	fmt.Println(o.render(o.valueStyle, s))
+}
+
+// Sensitive prints secret material such as mnemonics and private keys.
+func (o *CLIOut) Sensitive(s string) {
+	fmt.Println(o.render(o.sensitiveStyle, s))
+}
+
+// Field prints "value (description)" with the same layout seedify uses.
+func (o *CLIOut) Field(value, description string) {
+	if !o.color {
+		fmt.Printf("%s (%s)\n", value, description)
+		return
+	}
+	fmt.Printf("%s %s\n", o.render(o.valueStyle, value), o.render(o.labelStyle, "("+description+")"))
+}
+
+// SensitiveField prints secret material with a trailing description.
+func (o *CLIOut) SensitiveField(value, description string) {
+	if !o.color {
+		fmt.Printf("%s (%s)\n", value, description)
+		return
+	}
+	fmt.Printf("%s %s\n", o.render(o.sensitiveStyle, value), o.render(o.labelStyle, "("+description+")"))
+}
+
+// TreeField prints "└─ value (description)" like seedify's nested fields.
+func (o *CLIOut) TreeField(value, description string) {
+	const branch = "└─"
+	if !o.color {
+		fmt.Printf("%s %s (%s)\n", branch, value, description)
+		return
+	}
+	fmt.Printf("%s %s %s\n", o.render(o.borderStyle, branch), o.render(o.valueStyle, value), o.render(o.labelStyle, "("+description+")"))
+}
+
+// SensitiveTreeField prints "└─ secret (description)".
+func (o *CLIOut) SensitiveTreeField(value, description string) {
+	const branch = "└─"
+	if !o.color {
+		fmt.Printf("%s %s (%s)\n", branch, value, description)
+		return
+	}
+	fmt.Printf("%s %s %s\n", o.render(o.borderStyle, branch), o.render(o.sensitiveStyle, value), o.render(o.labelStyle, "("+description+")"))
+}
+
+// AddressSection prints a single address under a [title] section header,
+// mirroring seedify's AddressSection layout.
+func (o *CLIOut) AddressSection(title, addr string) {
+	o.Section(title)
+	o.Blank()
+	o.Value(addr)
+	o.Blank()
 }

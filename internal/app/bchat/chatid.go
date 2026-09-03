@@ -12,6 +12,12 @@
 // Base64(x25519_pub.serialize()) where serialize prepends the 0xBD type byte.
 // The 66-hex string is what BChat users share and what the app's report-issue
 // account uses (REPORT_ISSUE_ID in build.gradle: "bd27b58b...3952").
+//
+// meltify feeds this function the CryptoNote legacy seed — scReduce32 of the
+// raw Ed25519 seed — which is the exact 32 bytes the printed 25-word phrase
+// encodes and that BChat recovers when the phrase is restored. Deriving the
+// chat ID from the raw seed instead is wrong: BChat restores the reduced seed
+// from the phrase, and for seeds >= the curve order the two differ.
 package bchat
 
 import (
@@ -26,9 +32,9 @@ import (
 // that bchat-android prepends when serializing an X25519 public key.
 const chatIDTypeTag = byte(0xBD)
 
-// DeriveChatID derives the Beldex BChat chat ID from a raw 32-byte Ed25519
-// seed. The seed is the same one meltify emits; no scReduce32 is applied here
-// (unlike the CryptoNote legacy seed).
+// DeriveChatID derives the Beldex BChat chat ID from a 32-byte seed. The seed
+// is the CryptoNote legacy seed meltify prints (scReduce32 of the raw Ed25519
+// seed), matching what BChat recovers when restoring the 25-word phrase.
 func DeriveChatID(seed []byte) (string, error) {
 	if len(seed) != ed25519.SeedSize {
 		return "", fmt.Errorf("bchat chat id: expected %d-byte seed, got %d", ed25519.SeedSize, len(seed))

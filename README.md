@@ -76,7 +76,7 @@ meltify-beldex ~/.ssh/id_ed25519
 
 The 25-word CryptoNote seed is unprefixed. `meltify-monero` produces the same 25-word seed from the same key when no `--subaccount` is used.
 
-The BChat chat ID is the raw Ed25519 seed's X25519 public key prefixed with the DJB type tag `0xBD` (66 hex chars, e.g. `bd27b58b…3952`), exactly how the BChat Android app derives it (`cryptoSignSeedKeypair` → `convertKeyPairEd25519ToCurve25519` → prepend `0xBD`). It is derived from the raw seed, not the scReduced seed used for the CryptoNote legacy seed/addresses.
+The BChat chat ID is the X25519 public key of the CryptoNote legacy seed — the exact 32 bytes the printed 25-word phrase encodes — prefixed with the DJB type tag `0xBD` (66 hex chars, e.g. `bd27b58b…3952`), matching how BChat derives it when the phrase is restored (`cryptoSignSeedKeypair` → `convertKeyPairEd25519ToCurve25519` → prepend `0xBD`). Deriving it from the raw (unscReduced) seed would disagree with BChat for every seed that does not reduce to itself.
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`.
 

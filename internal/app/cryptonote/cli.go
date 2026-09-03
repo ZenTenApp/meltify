@@ -33,8 +33,10 @@ type CoinConfig struct {
 	AddressLabel    string
 	DeriveAddresses func(seed string, count int) (AddressSet, error)
 	// ExtraLabel and DeriveExtra render an additional identity block after the
-	// seed. DeriveExtra receives the raw 32-byte Ed25519 seed (not the scReduced
-	// CryptoNote seed). Empty DeriveExtra disables the block.
+	// seed. DeriveExtra receives the exact 32 bytes encoded by the printed
+	// 25-word seed (for CryptoNote coins: the scReduced seed), so identities
+	// derived from it match restoring the printed seed in the wallet. Empty
+	// DeriveExtra disables the block.
 	ExtraLabel  string
 	DeriveExtra func(seed []byte) (string, error)
 }
@@ -155,7 +157,7 @@ func printCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
 	out.Blank()
 	out.DoubleDelimitedBlock(coin.SeedLabel, seed, true)
 	if coin.DeriveExtra != nil {
-		extra, extraErr := coin.DeriveExtra(key.Seed())
+		extra, extraErr := coin.DeriveExtra(legacySeedBytesFromKey(key))
 		if extraErr != nil {
 			return fmt.Errorf("failed to derive %s extra output: %w", coin.DisplayName, extraErr)
 		}

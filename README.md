@@ -102,6 +102,8 @@ meltify-polyseed ~/.ssh/id_ed25519
 
 The polyseed embeds a creation date (the "birthday"), which defaults to January 1 of the current year (matching the seedify CLI). Override it with `--birthday YYYY-MM`; the same key, subaccount, and birthday always produce the same phrase. A `--seed-offset <passphrase>` is also supported for Feather-compatible wallet seed offsets.
 
+`--all-polyseeds` emits every unique polyseed from the first possible birthday (the Polyseed era, November 2021) through today — one block per unique birthday period, labeled with the calendar-day range it covers (e.g. `2021-11-01 → 2021-12-01`), exactly like seedify's `--all-polyseeds`. Because the polyseed birthday grid is ~30.44 days and drifts against calendar months, a `--birthday YYYY-MM` phrase (the 1st of the month at 00:00 UTC) can fall in the *previous* period, so it may differ from the `--all-polyseeds` chunk covering most of that month — this matches seedify's own behavior.
+
 It supports `--subaccount` / `-s`, `--seed-offset`, `--birthday`, and the same completion/manpage commands as `meltify`.
 
 ## Info (full identity report)

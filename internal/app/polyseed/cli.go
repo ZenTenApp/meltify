@@ -94,7 +94,6 @@ func ExecutePolyseed(args []string, stdin io.Reader, info cliutil.VersionInfo) e
 
 func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 	var subaccount string
-	var seedOffset string
 	var birthday string
 	var allPolyseeds bool
 
@@ -112,12 +111,13 @@ With --all-polyseeds the output is one polyseed block per unique birthday period
 calendar-day range it covers (e.g. 2021-11-01 → 2021-12-01), matching seedify's --all-polyseeds.
 
 The output is the 16-word polyseed phrase plus the Monero primary address and subaddresses derived
-from it (single-birthday mode only). Encrypted keys prompt for the existing SSH key passphrase. Use
---subaccount to derive a deterministic subaccount key first.`,
+from it (single-birthday mode only). The polyseed phrase is self-contained: restoring it in any
+standard Monero wallet reproduces exactly these addresses (no seed-offset passphrase is supported,
+since the polyseed format has no slot for one). Encrypted keys prompt for the existing SSH key
+passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-polyseed ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-polyseed
   meltify-polyseed ~/.ssh/id_ed25519 --subaccount subaccount-label
-  meltify-polyseed ~/.ssh/id_ed25519 --seed-offset my-offset
   meltify-polyseed ~/.ssh/id_ed25519 --birthday 2024-06
   meltify-polyseed ~/.ssh/id_ed25519 --all-polyseeds`,
 		Version:      info.String(),
@@ -134,11 +134,10 @@ from it (single-birthday mode only). Encrypted keys prompt for the existing SSH 
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, seedOffset, birthday, allPolyseeds, stdin)
+			return runWithOptions(keyPath, subaccount, birthday, allPolyseeds, stdin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
-	rootCmd.Flags().StringVar(&seedOffset, "seed-offset", "", "Monero seed offset passphrase (Feather-compatible)")
 	rootCmd.Flags().StringVar(&birthday, "birthday", "", "Polyseed creation date as YYYY-MM (default: January 1 of the current year)")
 	rootCmd.Flags().BoolVar(&allPolyseeds, "all-polyseeds", false, "Generate every unique polyseed from the first possible birthday (Nov 2021) through today, one block per unique birthday period (overrides --birthday)")
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
@@ -146,7 +145,7 @@ from it (single-birthday mode only). Encrypted keys prompt for the existing SSH 
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount, seedOffset, birthday string, allPolyseeds bool, stdin io.Reader) error {
+func runWithOptions(keyPath, subaccount, birthday string, allPolyseeds bool, stdin io.Reader) error {
 	seed, err := meltifyexec.ExtractSeed(keyPath, subaccount, stdin)
 	if err != nil {
 		return fmt.Errorf("could not extract key material with meltify: %w", err)
@@ -167,7 +166,7 @@ func runWithOptions(keyPath, subaccount, seedOffset, birthday string, allPolysee
 		return fmt.Errorf("failed to derive Monero polyseed: %w", err)
 	}
 
-	keys, err := seedify.DeriveMoneroKeysWithSeedOffset(phrase, defaultAddressCount, seedOffset)
+	keys, err := seedify.DeriveMoneroKeys(phrase, defaultAddressCount)
 	if err != nil {
 		return fmt.Errorf("failed to derive Monero keys from polyseed: %w", err)
 	}

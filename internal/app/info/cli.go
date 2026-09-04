@@ -21,6 +21,37 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// walletAddresses are the coin addresses deterministically derived from the
+// 24-word MELT/BIP39 phrase (standard HD paths from the same BIP39 seed used
+// for the Nostr keys).
+type walletAddresses struct {
+	Bitcoin  string // bc1q... (BIP84 m/84'/0'/0'/0/0, native segwit)
+	Ethereum string // 0x... (BIP44 m/44'/60'/0'/0/0)
+	Solana   string // Base58 (SLIP-0010 m/44'/501'/0'/0')
+	Tron     string // T... (BIP44 m/44'/195'/0'/0/0)
+}
+
+// deriveWalletAddresses derives the four coin addresses from the given BIP39 mnemonic.
+func deriveWalletAddresses(mnemonic string) (walletAddresses, error) {
+	var (
+		w   walletAddresses
+		err error
+	)
+	if w.Bitcoin, err = seedify.DeriveBitcoinAddressNativeSegwit(mnemonic, ""); err != nil {
+		return w, fmt.Errorf("could not derive bitcoin address: %w", err)
+	}
+	if w.Ethereum, err = seedify.DeriveEthereumAddress(mnemonic, ""); err != nil {
+		return w, fmt.Errorf("could not derive ethereum address: %w", err)
+	}
+	if w.Solana, err = seedify.DeriveSolanaAddress(mnemonic, ""); err != nil {
+		return w, fmt.Errorf("could not derive solana address: %w", err)
+	}
+	if w.Tron, err = seedify.DeriveTronAddress(mnemonic, ""); err != nil {
+		return w, fmt.Errorf("could not derive tron address: %w", err)
+	}
+	return w, nil
+}
+
 // ExecuteInfo runs the meltify-info CLI.
 func ExecuteInfo(args []string, stdin io.Reader, info cliutil.VersionInfo) error {
 	cmd := newRootCommand(stdin, info)
@@ -43,11 +74,13 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 - raw Ed25519 seed
 - 24-word charmbracelet/MELT seed phrase
 - Nostr nsec / hex secret key
+- wallet addresses: bitcoin (bc1), ethereum, solana, tron
 
 All forms are derived from the same master seed, so the SSH key, raw seed, and
-MELT phrase are the same secret in different encodings; the Nostr keys are
-deterministically derived from it. Encrypted keys prompt for the existing SSH
-key passphrase. Use --subaccount to report a deterministic subaccount key.`,
+MELT phrase are the same secret in different encodings; the Nostr keys and
+wallet addresses are deterministically derived from it. Encrypted keys prompt
+for the existing SSH key passphrase. Use --subaccount to report a
+deterministic subaccount key.`,
 		Example: `  meltify-info ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-info
   meltify-info ~/.ssh/id_ed25519 --subaccount subaccount-label`,
@@ -107,6 +140,11 @@ func printReport(material *sshkey.Material) error {
 		return errors.New("failed to decode OpenSSH private key PEM block")
 	}
 
+	wallets, err := deriveWalletAddresses(mnemonic24)
+	if err != nil {
+		return err
+	}
+
 	pubB64 := base64.StdEncoding.EncodeToString(sshPubKey.Marshal())
 	publicKeyLine := "ssh-ed25519 " + pubB64 + " " + nostrKeys.Npub
 	privB64 := base64.StdEncoding.EncodeToString(privateKeyBlock.Bytes)
@@ -128,7 +166,19 @@ func printReport(material *sshkey.Material) error {
 	out.Block("ED25519 SEED", seedHex, true)
 	out.BlankPair()
 	out.DoubleDelimitedBlock("24-WORD SEED PHRASE (charmbracelet/MELT)", mnemonic24, true)
-	out.BlankPair()
+	out.Blank()
+
+	// Wallet addresses as seedify-style [section] headers (matching seedify's
+	// "<coin> address from 24 word seed" layout).
+	out.Section("bitcoin addresses from 24 word seed")
+	out.Blank()
+	out.Field(wallets.Bitcoin, "native segwit P2WPKH - BIP84 m/84'/0'/0'/0/0")
+	out.Blank()
+	out.AddressSection("ethereum address from 24 word seed", wallets.Ethereum)
+	out.AddressSection("solana address from 24 word seed", wallets.Solana)
+	out.AddressSection("tron address from 24 word seed", wallets.Tron)
+
+	out.Blank()
 	out.RawBorderBlock("----- nSecKey / hexSecKey -----", []termout.BlockLine{
 		{Text: nostrKeys.Nsec, Sensitive: true},
 		{Text: nostrKeys.PrivKeyHex, Sensitive: true},

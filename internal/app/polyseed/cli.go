@@ -22,10 +22,10 @@ const (
 
 	// polyseedMinBirthdayUnix is the Polyseed format's epoch timestamp,
 	// 1 Nov 2021 12:00 UTC (github.com/complex-gh/polyseed_go). It is the
-	// first possible polyseed birthday, so --all-polyseeds enumerates every
-	// unique birthday period from this era through today. The calendar-day
-	// iteration below samples each day at 00:00 UTC (matching seedify's
-	// groupPolyseedsByDay), starting from 1 Nov 2021 00:00 UTC.
+	// first possible polyseed birthday, so meltify-polyseed enumerates every
+	// unique birthday period from this era through today by default. The
+	// calendar-day iteration below samples each day at 00:00 UTC (matching
+	// seedify's groupPolyseedsByDay), starting from 1 Nov 2021 00:00 UTC.
 	polyseedMinBirthdayUnix = uint64(1635768000)
 )
 
@@ -95,31 +95,25 @@ func ExecutePolyseed(args []string, stdin io.Reader, info cliutil.VersionInfo) e
 func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 	var subaccount string
 	var birthday string
-	var allPolyseeds bool
 
 	rootCmd := &cobra.Command{
 		Use:   binaryName + " [key-path]",
-		Short: "Export a deterministic 16-word Monero polyseed and addresses from an Ed25519 OpenSSH key",
-		Long: `meltify-polyseed runs meltify to extract raw Ed25519 seed material, then derives a deterministic
-16-word Monero polyseed (Polyseed format) from that seed. The polyseed's embedded creation date
-(the "birthday") defaults to January 1 of the current year, matching the seedify CLI; use
---birthday YYYY-MM to override, or --all-polyseeds to emit every unique polyseed from the first
-possible birthday (November 2021) through today. The same key, subaccount, and birthday always
-produce the same phrase.
+		Short: "Export deterministic 16-word Monero polyseeds and addresses from an Ed25519 OpenSSH key",
+		Long: `meltify-polyseed runs meltify to extract raw Ed25519 seed material, then derives the complete
+set of deterministic 16-word Monero polyseeds (Polyseed format) from that seed: one polyseed per
+unique birthday period from the first possible birthday (November 2021) through today, each
+labeled with the calendar-day range it covers (e.g. 2021-11-01 → 2021-12-01). This matches
+seedify's --all-polyseeds. The same key, subaccount, and birthday always produce the same phrase.
 
-With --all-polyseeds the output is one polyseed block per unique birthday period, labeled with the
-calendar-day range it covers (e.g. 2021-11-01 → 2021-12-01), matching seedify's --all-polyseeds.
-
-The output is the 16-word polyseed phrase plus the Monero primary address and subaddresses derived
-from it (single-birthday mode only). The polyseed phrase is self-contained: restoring it in any
-standard Monero wallet reproduces exactly these addresses (no seed-offset passphrase is supported,
-since the polyseed format has no slot for one). Encrypted keys prompt for the existing SSH key
-passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
+Use --birthday YYYY-MM to emit a single polyseed for that month together with the Monero primary
+address and subaddresses derived from it. The polyseed phrase is self-contained: restoring it in
+any standard Monero wallet reproduces exactly these addresses (no seed-offset passphrase is
+supported, since the polyseed format has no slot for one). Encrypted keys prompt for the existing
+SSH key passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-polyseed ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-polyseed
   meltify-polyseed ~/.ssh/id_ed25519 --subaccount subaccount-label
-  meltify-polyseed ~/.ssh/id_ed25519 --birthday 2024-06
-  meltify-polyseed ~/.ssh/id_ed25519 --all-polyseeds`,
+  meltify-polyseed ~/.ssh/id_ed25519 --birthday 2024-06`,
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -134,25 +128,27 @@ passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, birthday, allPolyseeds, stdin)
+			return runWithOptions(keyPath, subaccount, birthday, stdin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
-	rootCmd.Flags().StringVar(&birthday, "birthday", "", "Polyseed creation date as YYYY-MM (default: January 1 of the current year)")
-	rootCmd.Flags().BoolVar(&allPolyseeds, "all-polyseeds", false, "Generate every unique polyseed from the first possible birthday (Nov 2021) through today, one block per unique birthday period (overrides --birthday)")
+	rootCmd.Flags().StringVar(&birthday, "birthday", "", "Emit a single polyseed for this creation date YYYY-MM with its addresses (default: all polyseeds from Nov 2021 through today)")
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
 	rootCmd.AddCommand(cliutil.NewCompletionCommand(rootCmd, binaryName))
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount, birthday string, allPolyseeds bool, stdin io.Reader) error {
+func runWithOptions(keyPath, subaccount, birthday string, stdin io.Reader) error {
 	seed, err := meltifyexec.ExtractSeed(keyPath, subaccount, stdin)
 	if err != nil {
 		return fmt.Errorf("could not extract key material with meltify: %w", err)
 	}
 	key := ed25519.NewKeyFromSeed(seed)
 
-	if allPolyseeds {
+	// Default: every unique polyseed from the first possible birthday (Nov
+	// 2021) through today. --birthday narrows to a single phrase plus its
+	// Monero addresses.
+	if birthday == "" {
 		return printAllPolyseeds(&key)
 	}
 
@@ -214,20 +210,16 @@ func printAllPolyseeds(key *ed25519.PrivateKey) error {
 	return nil
 }
 
-// resolveBirthday converts an optional --birthday YYYY-MM override into a Unix
-// timestamp. The default is January 1 of the current year, matching the seedify
-// CLI. Returns the timestamp and a YYYY-MM label for display.
+// resolveBirthday converts the --birthday YYYY-MM override into a Unix
+// timestamp for the 1st of that month at 00:00 UTC. The caller only invokes it
+// when --birthday is provided (no flag means all polyseeds). Returns the
+// timestamp and a YYYY-MM label for display.
 func resolveBirthday(birthday string) (uint64, string, error) {
-	var ts time.Time
-	if birthday != "" {
-		parsed, err := time.Parse("2006-01", birthday)
-		if err != nil {
-			return 0, "", fmt.Errorf("invalid --birthday %q: use YYYY-MM (e.g. 2026-01)", birthday)
-		}
-		ts = parsed
-	} else {
-		ts = time.Date(time.Now().Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
+	parsed, err := time.Parse("2006-01", birthday)
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid --birthday %q: use YYYY-MM (e.g. 2026-01)", birthday)
 	}
+	ts := parsed
 
 	label := ts.Format("2006-01")
 	unix := ts.Unix()

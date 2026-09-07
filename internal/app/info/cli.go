@@ -156,6 +156,17 @@ func printReport(material *sshkey.Material) error {
 	out.BlankPair()
 	out.Block("OPENSSH PUBLIC KEY", publicKeyLine, false)
 	out.BlankPair()
+
+	// Wallet addresses (green section) before the npub.
+	out.Section("bitcoin addresses from 24 word seed")
+	out.Blank()
+	out.Field(wallets.Bitcoin, "native segwit P2WPKH - BIP84 m/84'/0'/0'/0/0")
+	out.Blank()
+	out.AddressSection("ethereum address from 24 word seed", wallets.Ethereum)
+	out.AddressSection("solana address from 24 word seed", wallets.Solana)
+	out.AddressSection("tron address from 24 word seed", wallets.Tron)
+	out.Blank()
+
 	out.RawBorderBlock("----- nPubKey / hexPubKey -----", []termout.BlockLine{
 		{Text: nostrKeys.Npub},
 		{Text: nostrKeys.PubKeyHex},
@@ -166,18 +177,6 @@ func printReport(material *sshkey.Material) error {
 	out.Block("ED25519 SEED", seedHex, true)
 	out.BlankPair()
 	out.DoubleDelimitedBlock("24-WORD SEED PHRASE (charmbracelet/MELT)", mnemonic24, true)
-	out.Blank()
-
-	// Wallet addresses as seedify-style [section] headers (matching seedify's
-	// "<coin> address from 24 word seed" layout).
-	out.Section("bitcoin addresses from 24 word seed")
-	out.Blank()
-	out.Field(wallets.Bitcoin, "native segwit P2WPKH - BIP84 m/84'/0'/0'/0/0")
-	out.Blank()
-	out.AddressSection("ethereum address from 24 word seed", wallets.Ethereum)
-	out.AddressSection("solana address from 24 word seed", wallets.Solana)
-	out.AddressSection("tron address from 24 word seed", wallets.Tron)
-
 	out.Blank()
 	out.RawBorderBlock("----- nSecKey / hexSecKey -----", []termout.BlockLine{
 		{Text: nostrKeys.Nsec, Sensitive: true},

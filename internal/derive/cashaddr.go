@@ -6,7 +6,14 @@ import (
 	"github.com/btcsuite/btcd/btcutil/bech32"
 )
 
-const cashAddrCharset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+const (
+	cashAddrCharset      = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+	cashAddrCharsetMask  = 31
+	cashAddrPolymodShift = 35
+	cashAddrPolymodMask  = 0x07ffffffff
+	cashAddrGroupBits    = 5
+	cashAddrChecksumLen  = 8
+)
 
 var cashAddrGenerators = [5]uint64{
 	0x98f2bc8e61,
@@ -40,9 +47,10 @@ func encodeCashAddr(prefix string, version byte, hash []byte) (string, error) {
 	values = append(values, data5...)
 	values = append(values, 0, 0, 0, 0, 0, 0, 0, 0)
 	mod := cashAddrPolymod(values) ^ 1
-	checksum := make([]byte, 8) //nolint:mnd
-	for i := range checksum {
-		checksum[i] = byte((mod >> uint(5*(7-i))) & 31) //nolint:mnd
+	checksum := make([]byte, cashAddrChecksumLen)
+	for i := uint(0); i < cashAddrChecksumLen; i++ {
+		shift := cashAddrGroupBits * (cashAddrChecksumLen - 1 - i)
+		checksum[i] = byte((mod >> shift) & cashAddrCharsetMask)
 	}
 
 	encoded := make([]byte, len(data5)+len(checksum))
@@ -58,7 +66,7 @@ func encodeCashAddr(prefix string, version byte, hash []byte) (string, error) {
 func cashAddrPrefixExpand(prefix string) []byte {
 	out := make([]byte, 0, len(prefix)+1)
 	for i := 0; i < len(prefix); i++ {
-		out = append(out, prefix[i]&31)
+		out = append(out, prefix[i]&cashAddrCharsetMask)
 	}
 	out = append(out, 0)
 	return out
@@ -67,10 +75,10 @@ func cashAddrPrefixExpand(prefix string) []byte {
 func cashAddrPolymod(values []byte) uint64 {
 	c := uint64(1)
 	for _, d := range values {
-		c0 := c >> 35
-		c = ((c & 0x07ffffffff) << 5) ^ uint64(d)
-		for i := range cashAddrGenerators {
-			if (c0>>uint(i))&1 == 1 {
+		c0 := c >> cashAddrPolymodShift
+		c = ((c & cashAddrPolymodMask) << cashAddrGroupBits) ^ uint64(d)
+		for i := uint(0); i < uint(len(cashAddrGenerators)); i++ {
+			if (c0>>i)&1 == 1 {
 				c ^= cashAddrGenerators[i]
 			}
 		}

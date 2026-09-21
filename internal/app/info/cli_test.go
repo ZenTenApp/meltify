@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ZenTenApp/meltify/internal/derive"
 	"github.com/ZenTenApp/meltify/internal/sshkey"
-	"github.com/ZenTenApp/seedify"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -31,9 +31,9 @@ func TestDeriveWalletAddresses(t *testing.T) {
 	}
 	key := ed25519.NewKeyFromSeed(seed)
 
-	mnemonic, err := seedify.ToMnemonicWithLength(&key, 24, "", false, 0)
+	mnemonic, err := derive.Mnemonic24(&key)
 	if err != nil {
-		t.Fatalf("ToMnemonicWithLength: %v", err)
+		t.Fatalf("Mnemonic24: %v", err)
 	}
 
 	w, err := deriveWalletAddresses(mnemonic)

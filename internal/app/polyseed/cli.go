@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/ZenTenApp/meltify/internal/cliutil"
+	"github.com/ZenTenApp/meltify/internal/derive"
 	"github.com/ZenTenApp/meltify/internal/meltifyexec"
 	"github.com/ZenTenApp/meltify/internal/termout"
-	"github.com/ZenTenApp/seedify"
 	"github.com/spf13/cobra"
 )
 
@@ -65,7 +65,7 @@ func allPolyseeds(key *ed25519.PrivateKey) ([]polyseedDayGroup, error) {
 	var prev string
 
 	for current := start; !current.After(now); current = current.AddDate(0, 0, 1) {
-		mnemonic, err := seedify.ToMnemonicWithLength(key, polyseedWordCount, "", false, uint64(current.Unix())) //nolint:gosec
+		mnemonic, err := derive.Polyseed16(key, uint64(current.Unix())) //nolint:gosec
 		if err != nil {
 			return nil, fmt.Errorf("could not generate polyseed for %s: %w", current.Format("2006-01-02"), err)
 		}
@@ -157,12 +157,12 @@ func runWithOptions(keyPath, subaccount, birthday string, stdin io.Reader) error
 		return err
 	}
 
-	phrase, err := seedify.ToMnemonicWithLength(&key, polyseedWordCount, "", false, birthdayUnix)
+	phrase, err := derive.Polyseed16(&key, birthdayUnix)
 	if err != nil {
 		return fmt.Errorf("failed to derive Monero polyseed: %w", err)
 	}
 
-	keys, err := seedify.DeriveMoneroKeys(phrase, defaultAddressCount)
+	keys, err := derive.MoneroFromPolyseed(phrase, defaultAddressCount)
 	if err != nil {
 		return fmt.Errorf("failed to derive Monero keys from polyseed: %w", err)
 	}

@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"github.com/ZenTenApp/meltify/internal/cliutil"
+	"github.com/ZenTenApp/meltify/internal/derive"
 	"github.com/ZenTenApp/meltify/internal/meltifyexec"
 	"github.com/ZenTenApp/meltify/internal/termout"
-	"github.com/ZenTenApp/seedify"
 	"github.com/spf13/cobra"
 )
 
@@ -69,12 +69,12 @@ func runWithOptions(keyPath, subaccount string, stdin io.Reader) error {
 }
 
 func printOutput(key *ed25519.PrivateKey) error {
-	mnemonic24, err := seedify.ToMnemonicWithLength(key, 24, "", false, 0) //nolint:mnd
+	mnemonic24, err := derive.Mnemonic24(key)
 	if err != nil {
 		return fmt.Errorf("could not generate 24-word MELT mnemonic: %w", err)
 	}
 
-	braveWord, err := seedify.BraveSync25thWord()
+	braveWord, err := derive.BraveSync25thWord()
 	if err != nil {
 		return fmt.Errorf("could not get Brave Sync word: %w", err)
 	}

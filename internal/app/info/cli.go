@@ -14,9 +14,9 @@ import (
 	"os"
 
 	"github.com/ZenTenApp/meltify/internal/cliutil"
+	"github.com/ZenTenApp/meltify/internal/derive"
 	"github.com/ZenTenApp/meltify/internal/sshkey"
 	"github.com/ZenTenApp/meltify/internal/termout"
-	"github.com/ZenTenApp/seedify"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 )
@@ -37,16 +37,16 @@ func deriveWalletAddresses(mnemonic string) (walletAddresses, error) {
 		w   walletAddresses
 		err error
 	)
-	if w.Bitcoin, err = seedify.DeriveBitcoinAddressNativeSegwit(mnemonic, ""); err != nil {
+	if w.Bitcoin, err = derive.BitcoinNativeSegwit(mnemonic, ""); err != nil {
 		return w, fmt.Errorf("could not derive bitcoin address: %w", err)
 	}
-	if w.Ethereum, err = seedify.DeriveEthereumAddress(mnemonic, ""); err != nil {
+	if w.Ethereum, err = derive.Ethereum(mnemonic, ""); err != nil {
 		return w, fmt.Errorf("could not derive ethereum address: %w", err)
 	}
-	if w.Solana, err = seedify.DeriveSolanaAddress(mnemonic, ""); err != nil {
+	if w.Solana, err = derive.Solana(mnemonic, ""); err != nil {
 		return w, fmt.Errorf("could not derive solana address: %w", err)
 	}
-	if w.Tron, err = seedify.DeriveTronAddress(mnemonic, ""); err != nil {
+	if w.Tron, err = derive.Tron(mnemonic, ""); err != nil {
 		return w, fmt.Errorf("could not derive tron address: %w", err)
 	}
 	return w, nil
@@ -125,12 +125,12 @@ func printReport(material *sshkey.Material) error {
 		return fmt.Errorf("failed to encode SSH public key: %w", err)
 	}
 
-	mnemonic24, err := seedify.ToMnemonicWithLength(material.Key, 24, "", false, 0) //nolint:mnd
+	mnemonic24, err := derive.Mnemonic24(material.Key)
 	if err != nil {
 		return fmt.Errorf("could not generate 24-word MELT mnemonic: %w", err)
 	}
 
-	nostrKeys, err := seedify.DeriveNostrKeysWithHex(mnemonic24, "")
+	nostrKeys, err := derive.NostrKeysFromMnemonic(mnemonic24, "")
 	if err != nil {
 		return fmt.Errorf("could not derive Nostr keys: %w", err)
 	}

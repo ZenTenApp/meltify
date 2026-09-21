@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ZenTenApp/seedify"
+	"github.com/ZenTenApp/meltify/internal/derive"
 )
 
 // fixedKey returns an ed25519 key with a deterministic seed (00..1f) so tests
@@ -20,9 +20,9 @@ func fixedKey() ed25519.PrivateKey {
 
 func phraseFor(t *testing.T, key *ed25519.PrivateKey, day time.Time) string {
 	t.Helper()
-	m, err := seedify.ToMnemonicWithLength(key, polyseedWordCount, "", false, uint64(day.Unix()))
+	m, err := derive.Polyseed16(key, uint64(day.Unix()))
 	if err != nil {
-		t.Fatalf("ToMnemonicWithLength(%s): %v", day.Format("2006-01-02"), err)
+		t.Fatalf("Polyseed16(%s): %v", day.Format("2006-01-02"), err)
 	}
 	return m
 }

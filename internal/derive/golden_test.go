@@ -58,6 +58,32 @@ func TestTronMatchesGolden(t *testing.T) {
 	assertEq(t, "tron", got, GoldenTron)
 }
 
+func TestExtraChainsMatchGolden(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func(string, string) (string, error)
+		want string
+	}{
+		{"bitcoincash", BitcoinCash, GoldenBitcoinCash},
+		{"litecoin", Litecoin, GoldenLitecoin},
+		{"dogecoin", Dogecoin, GoldenDogecoin},
+		{"cosmos", Cosmos, GoldenCosmos},
+		{"ripple", Ripple, GoldenRipple},
+		{"stellar", Stellar, GoldenStellar},
+		{"sui", Sui, GoldenSui},
+		{"silentpayment", SilentPayment, GoldenSilentPayment},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.fn(GoldenMnemonic24, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertEq(t, tt.name, got, tt.want)
+		})
+	}
+}
+
 func TestPolyseed16MatchesGolden(t *testing.T) {
 	key := fixedKey()
 	got, err := Polyseed16(&key, PolyseedGoldenBirthday)

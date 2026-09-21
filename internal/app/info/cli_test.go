@@ -3,12 +3,14 @@ package info
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/hex"
 	"encoding/pem"
 	"io"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/ZenTenApp/meltify/internal/app/bchat"
 	"github.com/ZenTenApp/meltify/internal/derive"
 	"github.com/ZenTenApp/meltify/internal/sshkey"
 	"golang.org/x/crypto/ssh"
@@ -36,25 +38,40 @@ func TestDeriveWalletAddresses(t *testing.T) {
 		t.Fatalf("Mnemonic24: %v", err)
 	}
 
-	w, err := deriveWalletAddresses(mnemonic)
+	w, err := deriveWalletAddresses(&key, mnemonic)
 	if err != nil {
 		t.Fatalf("deriveWalletAddresses: %v", err)
 	}
 
+	got := map[string]string{}
+	for _, row := range w {
+		got[row.label] = row.addr
+	}
 	tests := []struct {
 		name string
-		got  string
 		want string
 	}{
-		{"bitcoin (bc1)", w.Bitcoin, "bc1qslk39wvggqa0vl8nd6jckaz54dw3vk45c5w60m"},
-		{"ethereum", w.Ethereum, "0xF9297b542BDb5DA50C364f9AE4Cbe1F3933bA40F"},
-		{"solana", w.Solana, "5Pobwp6d9ihN9Nz38f87gVCEBFMgipFiSM2VtUhVit6w"},
-		{"tron", w.Tron, "TQ8xLycC44dA9nnvME3K6X41iMjmR3J1Vz"},
+		{"bitcoin", derive.GoldenBitcoin},
+		{"bitcoincash", derive.GoldenBitcoinCash},
+		{"ethereum", derive.GoldenEthereum},
+		{"solana", derive.GoldenSolana},
+		{"tron", derive.GoldenTron},
+		{"arbitrum", derive.GoldenEthereum},
+		{"litecoin", derive.GoldenLitecoin},
+		{"dogecoin", derive.GoldenDogecoin},
+		{"cosmos", derive.GoldenCosmos},
+		{"ripple", derive.GoldenRipple},
+		{"stellar", derive.GoldenStellar},
+		{"sui", derive.GoldenSui},
+		{"silentpayment", derive.GoldenSilentPayment},
+		{"monero", derive.GoldenMoneroLegacyPrimary},
+		{"beldex", derive.GoldenBeldexLegacyPrimary},
+		{"bchat", goldenBchat(t)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.want {
-				t.Errorf("%s = %s, want %s", tt.name, tt.got, tt.want)
+			if got[tt.name] != tt.want {
+				t.Errorf("%s = %s, want %s", tt.name, got[tt.name], tt.want)
 			}
 		})
 	}
@@ -93,10 +110,36 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		"BEGIN OPENSSH FINGERPRINT",
 		"BEGIN OPENSSH PUBLIC KEY",
 		"nPubKey / hexPubKey",
-		"bitcoin:bc1qslk39wvggqa0vl8nd6jckaz54dw3vk45c5w60m",
-		"ethereum:0xF9297b542BDb5DA50C364f9AE4Cbe1F3933bA40F",
-		"solana:5Pobwp6d9ihN9Nz38f87gVCEBFMgipFiSM2VtUhVit6w",
-		"tron:TQ8xLycC44dA9nnvME3K6X41iMjmR3J1Vz",
+		"arbitrum:" + derive.GoldenEthereum,
+		"arc:" + derive.GoldenEthereum,
+		"avalanche:" + derive.GoldenEthereum,
+		"base:" + derive.GoldenEthereum,
+		"bchat:" + goldenBchat(t),
+		"beldex:" + derive.GoldenBeldexLegacyPrimary,
+		"bitcoin:" + derive.GoldenBitcoin,
+		"bitcoincash:" + derive.GoldenBitcoinCash,
+		"bnbchain:" + derive.GoldenEthereum,
+		"celo:" + derive.GoldenEthereum,
+		"cosmos:" + derive.GoldenCosmos,
+		"cronos:" + derive.GoldenEthereum,
+		"dogecoin:" + derive.GoldenDogecoin,
+		"ethereum:" + derive.GoldenEthereum,
+		"gnosis:" + derive.GoldenEthereum,
+		"hyperevm:" + derive.GoldenEthereum,
+		"litecoin:" + derive.GoldenLitecoin,
+		"monad:" + derive.GoldenEthereum,
+		"monero:" + derive.GoldenMoneroLegacyPrimary,
+		"optimism:" + derive.GoldenEthereum,
+		"plasma:" + derive.GoldenEthereum,
+		"polygon:" + derive.GoldenEthereum,
+		"ripple:" + derive.GoldenRipple,
+		"silentpayment:" + derive.GoldenSilentPayment,
+		"solana:" + derive.GoldenSolana,
+		"stablechain:" + derive.GoldenEthereum,
+		"stellar:" + derive.GoldenStellar,
+		"sui:" + derive.GoldenSui,
+		"tron:" + derive.GoldenTron,
+		"worldchain:" + derive.GoldenEthereum,
 	}
 	last := -1
 	for _, marker := range markers {
@@ -110,6 +153,19 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		}
 		last = idx
 	}
+}
+
+func goldenBchat(t *testing.T) string {
+	t.Helper()
+	reduced, err := hex.DecodeString(derive.GoldenReducedSeedHex)
+	if err != nil {
+		t.Fatalf("GoldenReducedSeedHex: %v", err)
+	}
+	id, err := bchat.DeriveChatID(reduced)
+	if err != nil {
+		t.Fatalf("DeriveChatID: %v", err)
+	}
+	return id
 }
 
 func captureStdout(fn func()) string {

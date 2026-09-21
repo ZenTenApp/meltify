@@ -119,9 +119,9 @@ It supports `--subaccount` / `-s`, `--birthday`, and the same completion/manpage
 - OpenSSH public key fingerprint
 - OpenSSH public key with derived `npub` comment
 - Nostr `npub` / hex public key
-- wallet addresses: bitcoin (bc1), ethereum, solana, tron
+- wallet addresses as `label:address` (EVM chains reuse the Ethereum `0x`; Monero and Beldex use the 25-word CryptoNote legacy primary)
 
-All forms come from the same master seed, so the SSH key, raw seed, and MELT phrase are the same secret in different encodings; the Nostr keys and the four wallet addresses are deterministically derived from the MELT phrase via the standard BIP84/BIP44/SLIP-0010 paths (`bc1q…` native segwit, `0x…` Ethereum, Base58 Solana, `T…` Tron). `meltify-info` loads the key itself and supports `--subaccount` / `-s` plus the same completion/manpage commands as `meltify`.
+All forms come from the same master seed, so the SSH key, raw seed, and MELT phrase are the same secret in different encodings; the Nostr keys and BIP39 wallet addresses are deterministically derived from the MELT phrase. `meltify-info` loads the key itself and supports `--subaccount` / `-s` plus the same completion/manpage commands as `meltify`.
 
 ## Completions and man page
 

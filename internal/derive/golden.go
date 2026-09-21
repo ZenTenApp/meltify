@@ -33,6 +33,7 @@ const (
 	GoldenPrivHex = "74c6055bb13b0cb84e323c6115b7c6837e6b8c563b8e027264b6ffcb6b5f16ab"
 
 	GoldenBitcoin       = "bc1qslk39wvggqa0vl8nd6jckaz54dw3vk45c5w60m"
+	GoldenBitcoinCash   = "qptf4pe2u20g8ww73sguex6hsjh6rxcgfc4mkrcz2a"
 	GoldenEthereum      = "0xF9297b542BDb5DA50C364f9AE4Cbe1F3933bA40F"
 	GoldenSolana        = "5Pobwp6d9ihN9Nz38f87gVCEBFMgipFiSM2VtUhVit6w"
 	GoldenTron          = "TQ8xLycC44dA9nnvME3K6X41iMjmR3J1Vz"

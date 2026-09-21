@@ -67,13 +67,13 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 		Short: "Export a compact identity report (SSH, Nostr, MELT) from an Ed25519 OpenSSH key",
 		Long: `meltify-info prints a compact, colored export from an Ed25519 OpenSSH private key:
 
-- OpenSSH public key fingerprint
-- OpenSSH public key with derived npub comment
-- Nostr npub / hex public key
 - OpenSSH private key body
 - raw Ed25519 seed
 - 24-word charmbracelet/MELT seed phrase
 - Nostr nsec / hex secret key
+- OpenSSH public key fingerprint
+- OpenSSH public key with derived npub comment
+- Nostr npub / hex public key
 - wallet addresses: bitcoin (bc1), ethereum, solana, tron
 
 All forms are derived from the same master seed, so the SSH key, raw seed, and
@@ -152,26 +152,6 @@ func printReport(material *sshkey.Material) error {
 
 	out := termout.New()
 	out.Blank()
-	out.Block("OPENSSH FINGERPRINT", ssh.FingerprintSHA256(sshPubKey), false)
-	out.BlankPair()
-	out.Block("OPENSSH PUBLIC KEY", publicKeyLine, false)
-	out.BlankPair()
-
-	// Wallet addresses (green section) before the npub.
-	out.Section("bitcoin addresses from 24 word seed")
-	out.Blank()
-	out.Field(wallets.Bitcoin, "native segwit P2WPKH - BIP84 m/84'/0'/0'/0/0")
-	out.Blank()
-	out.AddressSection("ethereum address from 24 word seed", wallets.Ethereum)
-	out.AddressSection("solana address from 24 word seed", wallets.Solana)
-	out.AddressSection("tron address from 24 word seed", wallets.Tron)
-	out.Blank()
-
-	out.RawBorderBlock("----- nPubKey / hexPubKey -----", []termout.BlockLine{
-		{Text: nostrKeys.Npub},
-		{Text: nostrKeys.PubKeyHex},
-	})
-	out.BlankPair()
 	out.Block("OPENSSH PRIVATE KEY", privB64, true)
 	out.BlankPair()
 	out.Block("ED25519 SEED", seedHex, true)
@@ -183,5 +163,20 @@ func printReport(material *sshkey.Material) error {
 		{Text: nostrKeys.PrivKeyHex, Sensitive: true},
 	})
 	out.BlankPair()
+	out.Block("OPENSSH FINGERPRINT", ssh.FingerprintSHA256(sshPubKey), false)
+	out.BlankPair()
+	out.Block("OPENSSH PUBLIC KEY", publicKeyLine, false)
+	out.BlankPair()
+	out.RawBorderBlock("----- nPubKey / hexPubKey -----", []termout.BlockLine{
+		{Text: nostrKeys.Npub},
+		{Text: nostrKeys.PubKeyHex},
+	})
+	out.BlankPair()
+
+	out.Value("bitcoin:" + wallets.Bitcoin)
+	out.Value("ethereum:" + wallets.Ethereum)
+	out.Value("solana:" + wallets.Solana)
+	out.Value("tron:" + wallets.Tron)
+	out.Blank()
 	return nil
 }

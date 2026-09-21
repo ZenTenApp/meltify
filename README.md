@@ -112,13 +112,13 @@ It supports `--subaccount` / `-s`, `--birthday`, and the same completion/manpage
 
 `meltify-info` prints the original meltify identity export: a compact, colored report derived from a single Ed25519 OpenSSH private key:
 
-- OpenSSH public key fingerprint
-- OpenSSH public key with derived `npub` comment
-- Nostr `npub` / hex public key
 - OpenSSH private key body
 - raw Ed25519 seed
 - 24-word charmbracelet/MELT seed phrase
 - Nostr `nsec` / hex secret key
+- OpenSSH public key fingerprint
+- OpenSSH public key with derived `npub` comment
+- Nostr `npub` / hex public key
 - wallet addresses: bitcoin (bc1), ethereum, solana, tron
 
 All forms come from the same master seed, so the SSH key, raw seed, and MELT phrase are the same secret in different encodings; the Nostr keys and the four wallet addresses are deterministically derived from the MELT phrase via the standard BIP84/BIP44/SLIP-0010 paths (`bc1q…` native segwit, `0x…` Ethereum, Base58 Solana, `T…` Tron). `meltify-info` loads the key itself and supports `--subaccount` / `-s` plus the same completion/manpage commands as `meltify`.

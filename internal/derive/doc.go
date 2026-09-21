@@ -1,6 +1,5 @@
-// Package derive replicates the seedify behaviors meltify depends on.
+// Package derive holds meltify's in-tree mnemonic and address derivation.
 //
-// Production code in this package must not import github.com/ZenTenApp/seedify.
-// Characterization tests may still call seedify to prove bit-identical output
-// until that module is dropped.
+// Golden values in golden.go were captured from seedify v1.36.0 for the
+// fixed Ed25519 seed 00..1f. This package must not import seedify.
 package derive

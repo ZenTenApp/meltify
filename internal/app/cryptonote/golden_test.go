@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ZenTenApp/meltify/internal/derive"
-	"github.com/ZenTenApp/seedify"
 )
 
 func TestLegacySeedMatchesGolden(t *testing.T) {
@@ -26,8 +25,8 @@ func TestLegacySeedMatchesGolden(t *testing.T) {
 	}
 }
 
-func TestLegacyAddressesMatchSeedifyGolden(t *testing.T) {
-	xmr, err := seedify.DeriveMoneroKeysFromLegacySeed(derive.GoldenLegacy25, 1)
+func TestLegacyAddressesMatchGolden(t *testing.T) {
+	xmr, err := MoneroConfig.DeriveAddresses(derive.GoldenLegacy25, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +37,7 @@ func TestLegacyAddressesMatchSeedifyGolden(t *testing.T) {
 		t.Errorf("monero sub0 = %v, want %s", xmr.Subaddresses, derive.GoldenMoneroLegacySub0)
 	}
 
-	bdx, err := seedify.DeriveBeldexKeysFromLegacySeed(derive.GoldenLegacy25, 1)
+	bdx, err := BeldexConfig.DeriveAddresses(derive.GoldenLegacy25, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

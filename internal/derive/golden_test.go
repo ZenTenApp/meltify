@@ -3,108 +3,10 @@ package derive
 import (
 	"crypto/ed25519"
 	"testing"
-
-	"github.com/ZenTenApp/seedify"
 )
 
 func fixedKey() ed25519.PrivateKey {
 	return ed25519.NewKeyFromSeed(FixedSeed00to1f)
-}
-
-// TestSeedifyCharacterization locks seedify v1.36.0 output for the functions
-// meltify currently depends on (and the extra chain addresses we plan to add).
-func TestSeedifyCharacterization(t *testing.T) {
-	key := fixedKey()
-
-	mnemonic24, err := seedify.ToMnemonicWithLength(&key, 24, "", false, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertEq(t, "mnemonic24", mnemonic24, GoldenMnemonic24)
-
-	brave, err := seedify.BraveSync25thWordForDate(BraveGoldenDate)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertEq(t, "brave25th", brave, GoldenBrave25th)
-
-	polyseed16, err := seedify.ToMnemonicWithLength(&key, 16, "", false, PolyseedGoldenBirthday)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertEq(t, "polyseed16", polyseed16, GoldenPolyseed16)
-
-	polyseedEpoch, err := seedify.ToMnemonicWithLength(&key, 16, "", false, PolyseedEpochBirthday)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertEq(t, "polyseedEpoch", polyseedEpoch, GoldenPolyseedEpoch)
-
-	nostr, err := seedify.DeriveNostrKeysWithHex(mnemonic24, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertEq(t, "npub", nostr.Npub, GoldenNpub)
-	assertEq(t, "nsec", nostr.Nsec, GoldenNsec)
-	assertEq(t, "pubHex", nostr.PubKeyHex, GoldenPubHex)
-	assertEq(t, "privHex", nostr.PrivKeyHex, GoldenPrivHex)
-
-	type deriveFn func(string, string) (string, error)
-	addrs := []struct {
-		name string
-		fn   deriveFn
-		want string
-	}{
-		{"bitcoin", seedify.DeriveBitcoinAddressNativeSegwit, GoldenBitcoin},
-		{"ethereum", seedify.DeriveEthereumAddress, GoldenEthereum},
-		{"solana", seedify.DeriveSolanaAddress, GoldenSolana},
-		{"tron", seedify.DeriveTronAddress, GoldenTron},
-		{"litecoin", seedify.DeriveLitecoinAddress, GoldenLitecoin},
-		{"dogecoin", seedify.DeriveDogecoinAddress, GoldenDogecoin},
-		{"cosmos", seedify.DeriveCosmosAddress, GoldenCosmos},
-		{"stellar", seedify.DeriveStellarAddress, GoldenStellar},
-		{"ripple", seedify.DeriveRippleAddress, GoldenRipple},
-		{"sui", seedify.DeriveSuiAddress, GoldenSui},
-		{"silentpayment", seedify.DeriveSilentPaymentAddress, GoldenSilentPayment},
-	}
-	for _, tc := range addrs {
-		got, err := tc.fn(mnemonic24, "")
-		if err != nil {
-			t.Errorf("%s: %v", tc.name, err)
-			continue
-		}
-		assertEq(t, tc.name, got, tc.want)
-	}
-
-	xmr, err := seedify.DeriveMoneroKeys(polyseed16, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertEq(t, "monero_polyseed_primary", xmr.PrimaryAddress, GoldenMoneroPolyseedPrimary)
-	if len(xmr.Subaddresses) < 1 {
-		t.Fatal("monero polyseed: expected 1 subaddress")
-	}
-	assertEq(t, "monero_polyseed_sub0", xmr.Subaddresses[0], GoldenMoneroPolyseedSub0)
-
-	xmrLegacy, err := seedify.DeriveMoneroKeysFromLegacySeed(GoldenLegacy25, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertEq(t, "monero_legacy_primary", xmrLegacy.PrimaryAddress, GoldenMoneroLegacyPrimary)
-	if len(xmrLegacy.Subaddresses) < 1 {
-		t.Fatal("monero legacy: expected 1 subaddress")
-	}
-	assertEq(t, "monero_legacy_sub0", xmrLegacy.Subaddresses[0], GoldenMoneroLegacySub0)
-
-	bdx, err := seedify.DeriveBeldexKeysFromLegacySeed(GoldenLegacy25, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertEq(t, "beldex_legacy_primary", bdx.PrimaryAddress, GoldenBeldexLegacyPrimary)
-	if len(bdx.Subaddresses) < 1 {
-		t.Fatal("beldex legacy: expected 1 subaddress")
-	}
-	assertEq(t, "beldex_legacy_sub0", bdx.Subaddresses[0], GoldenBeldexLegacySub0)
 }
 
 func TestMnemonic24MatchesGolden(t *testing.T) {

@@ -10,9 +10,9 @@ import (
 
 	"github.com/ZenTenApp/meltify/internal/app/bchat"
 	"github.com/ZenTenApp/meltify/internal/cliutil"
+	"github.com/ZenTenApp/meltify/internal/derive"
 	"github.com/ZenTenApp/meltify/internal/meltifyexec"
 	"github.com/ZenTenApp/meltify/internal/termout"
-	"github.com/ZenTenApp/seedify"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +49,7 @@ var BeldexConfig = CoinConfig{
 	SeedLabel:    "25-WORD BELDEX (BDX) SEED",
 	AddressLabel: "BELDEX ADDRESSES FROM 25-WORD SEED",
 	DeriveAddresses: func(seed string, count int) (AddressSet, error) {
-		keys, err := seedify.DeriveBeldexKeysFromLegacySeed(seed, count)
+		keys, err := derive.BeldexFromLegacy(seed, count)
 		if err != nil {
 			return AddressSet{}, fmt.Errorf("derive Beldex keys from legacy seed: %w", err)
 		}
@@ -73,7 +73,7 @@ var MoneroConfig = CoinConfig{
 	SeedLabel:    "25-WORD MONERO LEGACY SEED",
 	AddressLabel: "MONERO ADDRESSES FROM 25-WORD LEGACY SEED",
 	DeriveAddresses: func(seed string, count int) (AddressSet, error) {
-		keys, err := seedify.DeriveMoneroKeysFromLegacySeed(seed, count)
+		keys, err := derive.MoneroFromLegacy(seed, count)
 		if err != nil {
 			return AddressSet{}, fmt.Errorf("derive Monero keys from legacy seed: %w", err)
 		}

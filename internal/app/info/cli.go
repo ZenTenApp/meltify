@@ -5,6 +5,7 @@
 package info
 
 import (
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
@@ -13,43 +14,124 @@ import (
 	"io"
 	"os"
 
+	"github.com/ZenTenApp/meltify/internal/app/bchat"
+	"github.com/ZenTenApp/meltify/internal/app/cryptonote"
 	"github.com/ZenTenApp/meltify/internal/cliutil"
+	"github.com/ZenTenApp/meltify/internal/derive"
 	"github.com/ZenTenApp/meltify/internal/sshkey"
 	"github.com/ZenTenApp/meltify/internal/termout"
-	"github.com/ZenTenApp/seedify"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 )
 
-// walletAddresses are the coin addresses deterministically derived from the
-// 24-word MELT/BIP39 phrase (standard HD paths from the same BIP39 seed used
-// for the Nostr keys).
-type walletAddresses struct {
-	Bitcoin  string // bc1q... (BIP84 m/84'/0'/0'/0/0, native segwit)
-	Ethereum string // 0x... (BIP44 m/44'/60'/0'/0/0)
-	Solana   string // Base58 (SLIP-0010 m/44'/501'/0'/0')
-	Tron     string // T... (BIP44 m/44'/195'/0'/0/0)
+type labeledAddress struct {
+	label string
+	addr  string
 }
 
-// deriveWalletAddresses derives the four coin addresses from the given BIP39 mnemonic.
-func deriveWalletAddresses(mnemonic string) (walletAddresses, error) {
-	var (
-		w   walletAddresses
-		err error
-	)
-	if w.Bitcoin, err = seedify.DeriveBitcoinAddressNativeSegwit(mnemonic, ""); err != nil {
-		return w, fmt.Errorf("could not derive bitcoin address: %w", err)
+// deriveWalletAddresses derives meltify-info chain addresses.
+// BIP39 chains use mnemonic; Monero and Beldex use the 25-word CryptoNote
+// legacy phrase from key (same as meltify-monero / meltify-beldex).
+// EVM aliases reuse the Ethereum 0x address.
+func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledAddress, error) {
+	eth, err := derive.Ethereum(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive ethereum address: %w", err)
 	}
-	if w.Ethereum, err = seedify.DeriveEthereumAddress(mnemonic, ""); err != nil {
-		return w, fmt.Errorf("could not derive ethereum address: %w", err)
+	btc, err := derive.BitcoinNativeSegwit(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive bitcoin address: %w", err)
 	}
-	if w.Solana, err = seedify.DeriveSolanaAddress(mnemonic, ""); err != nil {
-		return w, fmt.Errorf("could not derive solana address: %w", err)
+	bch, err := derive.BitcoinCash(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive bitcoin cash address: %w", err)
 	}
-	if w.Tron, err = seedify.DeriveTronAddress(mnemonic, ""); err != nil {
-		return w, fmt.Errorf("could not derive tron address: %w", err)
+	sol, err := derive.Solana(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive solana address: %w", err)
 	}
-	return w, nil
+	trx, err := derive.Tron(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive tron address: %w", err)
+	}
+	ltc, err := derive.Litecoin(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive litecoin address: %w", err)
+	}
+	doge, err := derive.Dogecoin(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive dogecoin address: %w", err)
+	}
+	atom, err := derive.Cosmos(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive cosmos address: %w", err)
+	}
+	xrp, err := derive.Ripple(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive ripple address: %w", err)
+	}
+	xlm, err := derive.Stellar(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive stellar address: %w", err)
+	}
+	sui, err := derive.Sui(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive sui address: %w", err)
+	}
+	sp, err := derive.SilentPayment(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive silent payment address: %w", err)
+	}
+
+	legacy, err := cryptonote.LegacyPhrase(key)
+	if err != nil {
+		return nil, fmt.Errorf("could not derive legacy CryptoNote seed: %w", err)
+	}
+	xmr, err := derive.MoneroFromLegacy(legacy, 0)
+	if err != nil {
+		return nil, fmt.Errorf("could not derive monero address: %w", err)
+	}
+	bdx, err := derive.BeldexFromLegacy(legacy, 0)
+	if err != nil {
+		return nil, fmt.Errorf("could not derive beldex address: %w", err)
+	}
+	chatID, err := bchat.DeriveChatID(cryptonote.LegacySeedBytes(key))
+	if err != nil {
+		return nil, fmt.Errorf("could not derive bchat identity: %w", err)
+	}
+
+	return []labeledAddress{
+		{"arbitrum", eth},
+		{"arc", eth},
+		{"avalanche", eth},
+		{"base", eth},
+		{"bchat", chatID},
+		{"beldex", bdx.PrimaryAddress},
+		{"bitcoin", btc},
+		{"bitcoincash", bch},
+		{"bnbchain", eth},
+		{"celo", eth},
+		{"cosmos", atom},
+		{"cronos", eth},
+		{"dogecoin", doge},
+		{"ethereum", eth},
+		{"gnosis", eth},
+		{"hyperevm", eth},
+		{"litecoin", ltc},
+		{"monad", eth},
+		{"monero", xmr.PrimaryAddress},
+		{"optimism", eth},
+		{"plasma", eth},
+		{"polygon", eth},
+		{"ripple", xrp},
+		{"silentpayment", sp},
+		{"solana", sol},
+		{"stablechain", eth},
+		{"stellar", xlm},
+		{"sui", sui},
+		{"tron", trx},
+		{"worldchain", eth},
+	}, nil
 }
 
 // ExecuteInfo runs the meltify-info CLI.
@@ -67,18 +149,19 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 		Short: "Export a compact identity report (SSH, Nostr, MELT) from an Ed25519 OpenSSH key",
 		Long: `meltify-info prints a compact, colored export from an Ed25519 OpenSSH private key:
 
-- OpenSSH public key fingerprint
-- OpenSSH public key with derived npub comment
-- Nostr npub / hex public key
 - OpenSSH private key body
 - raw Ed25519 seed
 - 24-word charmbracelet/MELT seed phrase
 - Nostr nsec / hex secret key
-- wallet addresses: bitcoin (bc1), ethereum, solana, tron
+- OpenSSH public key fingerprint
+- OpenSSH public key with derived npub comment
+- Nostr npub / hex public key
+- wallet addresses as label:address (EVM chains reuse the Ethereum 0x;
+  Monero and Beldex use the 25-word CryptoNote legacy primary)
 
 All forms are derived from the same master seed, so the SSH key, raw seed, and
 MELT phrase are the same secret in different encodings; the Nostr keys and
-wallet addresses are deterministically derived from it. Encrypted keys prompt
+BIP39 wallet addresses are deterministically derived from it. Encrypted keys prompt
 for the existing SSH key passphrase. Use --subaccount to report a
 deterministic subaccount key.`,
 		Example: `  meltify-info ~/.ssh/id_ed25519
@@ -125,12 +208,12 @@ func printReport(material *sshkey.Material) error {
 		return fmt.Errorf("failed to encode SSH public key: %w", err)
 	}
 
-	mnemonic24, err := seedify.ToMnemonicWithLength(material.Key, 24, "", false, 0) //nolint:mnd
+	mnemonic24, err := derive.Mnemonic24(material.Key)
 	if err != nil {
 		return fmt.Errorf("could not generate 24-word MELT mnemonic: %w", err)
 	}
 
-	nostrKeys, err := seedify.DeriveNostrKeysWithHex(mnemonic24, "")
+	nostrKeys, err := derive.NostrKeysFromMnemonic(mnemonic24, "")
 	if err != nil {
 		return fmt.Errorf("could not derive Nostr keys: %w", err)
 	}
@@ -140,7 +223,7 @@ func printReport(material *sshkey.Material) error {
 		return errors.New("failed to decode OpenSSH private key PEM block")
 	}
 
-	wallets, err := deriveWalletAddresses(mnemonic24)
+	wallets, err := deriveWalletAddresses(material.Key, mnemonic24)
 	if err != nil {
 		return err
 	}
@@ -152,36 +235,30 @@ func printReport(material *sshkey.Material) error {
 
 	out := termout.New()
 	out.Blank()
-	out.Block("OPENSSH FINGERPRINT", ssh.FingerprintSHA256(sshPubKey), false)
-	out.BlankPair()
-	out.Block("OPENSSH PUBLIC KEY", publicKeyLine, false)
-	out.BlankPair()
-
-	// Wallet addresses (green section) before the npub.
-	out.Section("bitcoin addresses from 24 word seed")
-	out.Blank()
-	out.Field(wallets.Bitcoin, "native segwit P2WPKH - BIP84 m/84'/0'/0'/0/0")
-	out.Blank()
-	out.AddressSection("ethereum address from 24 word seed", wallets.Ethereum)
-	out.AddressSection("solana address from 24 word seed", wallets.Solana)
-	out.AddressSection("tron address from 24 word seed", wallets.Tron)
-	out.Blank()
-
-	out.RawBorderBlock("----- nPubKey / hexPubKey -----", []termout.BlockLine{
-		{Text: nostrKeys.Npub},
-		{Text: nostrKeys.PubKeyHex},
-	})
-	out.BlankPair()
 	out.Block("OPENSSH PRIVATE KEY", privB64, true)
 	out.BlankPair()
 	out.Block("ED25519 SEED", seedHex, true)
 	out.BlankPair()
 	out.DoubleDelimitedBlock("24-WORD SEED PHRASE (charmbracelet/MELT)", mnemonic24, true)
-	out.Blank()
+	out.BlankPair()
 	out.RawBorderBlock("----- nSecKey / hexSecKey -----", []termout.BlockLine{
 		{Text: nostrKeys.Nsec, Sensitive: true},
 		{Text: nostrKeys.PrivKeyHex, Sensitive: true},
 	})
 	out.BlankPair()
+	out.Block("OPENSSH FINGERPRINT", ssh.FingerprintSHA256(sshPubKey), false)
+	out.BlankPair()
+	out.Block("OPENSSH PUBLIC KEY", publicKeyLine, false)
+	out.BlankPair()
+	out.RawBorderBlock("----- nPubKey / hexPubKey -----", []termout.BlockLine{
+		{Text: nostrKeys.Npub},
+		{Text: nostrKeys.PubKeyHex},
+	})
+	out.BlankPair()
+
+	for _, w := range wallets {
+		out.Value(w.label + ":" + w.addr)
+	}
+	out.Blank()
 	return nil
 }

@@ -28,6 +28,17 @@ func legacySeedBytesFromKey(key *ed25519.PrivateKey) []byte {
 	return scReduce32(key.Seed())
 }
 
+// LegacyPhrase returns the 25-word CryptoNote mnemonic encoded from key.
+func LegacyPhrase(key *ed25519.PrivateKey) (string, error) {
+	return legacySeedFromKey(key)
+}
+
+// LegacySeedBytes returns the 32-byte CryptoNote seed encoded by LegacyPhrase
+// (scReduce32 of the raw Ed25519 seed).
+func LegacySeedBytes(key *ed25519.PrivateKey) []byte {
+	return legacySeedBytesFromKey(key)
+}
+
 func legacySeedFromKey(key *ed25519.PrivateKey) (string, error) {
 	words, err := moneroLegacyBytesToWords(legacySeedBytesFromKey(key))
 	if err != nil {

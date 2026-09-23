@@ -38,7 +38,7 @@ func TestDeriveWalletAddresses(t *testing.T) {
 		t.Fatalf("Mnemonic24: %v", err)
 	}
 
-	w, err := deriveWalletAddresses(&key, mnemonic)
+	w, chatID, err := deriveWalletAddresses(&key, mnemonic)
 	if err != nil {
 		t.Fatalf("deriveWalletAddresses: %v", err)
 	}
@@ -46,6 +46,12 @@ func TestDeriveWalletAddresses(t *testing.T) {
 	got := map[string]string{}
 	for _, row := range w {
 		got[row.label] = row.addr
+	}
+	if _, ok := got["bchat"]; ok {
+		t.Error("bchat should not be in the chain address list")
+	}
+	if chatID != goldenBchat(t) {
+		t.Errorf("bchat = %s, want %s", chatID, goldenBchat(t))
 	}
 	tests := []struct {
 		name string
@@ -67,7 +73,6 @@ func TestDeriveWalletAddresses(t *testing.T) {
 		{"ton", derive.GoldenTon},
 		{"monero", derive.GoldenMoneroLegacyPrimary},
 		{"beldex", derive.GoldenBeldexLegacyPrimary},
-		{"bchat", goldenBchat(t)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -79,7 +84,8 @@ func TestDeriveWalletAddresses(t *testing.T) {
 }
 
 // TestPrintReportSectionOrder locks the meltify-info export sequence:
-// private material, fingerprint, public key, npub, then label:address lines.
+// private material, fingerprint, public key, npub, then label:address lines,
+// then a blank line and bchat (not a crypto chain).
 func TestPrintReportSectionOrder(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 
@@ -115,7 +121,6 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		"arc:" + derive.GoldenEthereum,
 		"avalanche:" + derive.GoldenEthereum,
 		"base:" + derive.GoldenEthereum,
-		"bchat:" + goldenBchat(t),
 		"beldex:" + derive.GoldenBeldexLegacyPrimary,
 		"bitcoin:" + derive.GoldenBitcoin,
 		"bitcoincash:" + derive.GoldenBitcoinCash,
@@ -142,6 +147,7 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		"ton:" + derive.GoldenTon,
 		"tron:" + derive.GoldenTron,
 		"worldchain:" + derive.GoldenEthereum,
+		"bchat:" + goldenBchat(t),
 	}
 	last := -1
 	for _, marker := range markers {
@@ -154,6 +160,17 @@ func TestPrintReportSectionOrder(t *testing.T) {
 			t.Errorf("marker %q appeared out of order (idx %d < %d)\nfull output:\n%s", marker, idx, last, captured)
 		}
 		last = idx
+	}
+
+	world := "worldchain:" + derive.GoldenEthereum
+	bchatLine := "bchat:" + goldenBchat(t)
+	idxWorld := strings.Index(captured, world)
+	idxBchat := strings.Index(captured, bchatLine)
+	if idxWorld >= 0 && idxBchat > idxWorld {
+		between := captured[idxWorld+len(world) : idxBchat]
+		if !strings.HasPrefix(between, "\n\n") {
+			t.Errorf("expected a blank line before bchat, got %q", between)
+		}
 	}
 }
 

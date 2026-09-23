@@ -31,8 +31,8 @@ const (
 	tonByteBits        = 8
 )
 
-// Published Wallet V4R2 code cell hash:
-// feb5ff6820e2ff0d9483e7e0d62c817d846789fb4ae580c878866d959dabd5c0
+// Published Wallet V4R2 code cell hash
+// (feb5ff6820e2ff0d9483e7e0d62c817d846789fb4ae580c878866d959dabd5c0).
 var tonV4R2CodeHash = [32]byte{
 	0xfe, 0xb5, 0xff, 0x68, 0x20, 0xe2, 0xff, 0x0d,
 	0x94, 0x83, 0xe7, 0xe0, 0xd6, 0x2c, 0x81, 0x7d,
@@ -55,7 +55,7 @@ func Ton(mnemonic, bip39Passphrase string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid mnemonic: %w", err)
 	}
-	key := deriveEd25519Key(seed, []uint32{44, 607, 0}) //nolint:mnd
+	key := deriveEd25519Key(seed, []uint32{44, 607, 0})
 	privateKey := ed25519.NewKeyFromSeed(key)
 	publicKey := privateKey.Public().(ed25519.PublicKey)
 	return encodeTonV4R2UQ(publicKey), nil

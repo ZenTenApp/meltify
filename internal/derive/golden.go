@@ -44,6 +44,7 @@ const (
 	GoldenRipple        = "r3u247nGDQcr1JX9fS8s5WY4tVNKK384Zu"
 	GoldenSui           = "0x7f96ee80ed7453fdd3b2cad7995da20e4ae5a76bded5015b4d1801bacd7801c9"
 	GoldenSilentPayment = "sp1qqtu4m9jlt6yl2mjwst6pp0raqkyjapz50gthr52d0pschtwqany5gq5uryj0tecznmds8xngvnsv4yjg0d6vgdz6e2nsptqr8xt5ffflqqnzrduf"
+	GoldenTon           = "UQBmx5RDvDnPuUVcu6F4oBs2m0brTn59RTCVlAELuxxeiVec"
 
 	GoldenMoneroPolyseedPrimary = "42D1qEvgumHa6dZqVqwDusVxUz9PbFGWTUhjGpCkKisBem9xNxCzxbY1QqVaBfAEdJ2cTAWz3ofv4VigE6UZovFX3uqyVv5"
 	GoldenMoneroPolyseedSub0    = "883akJfgEmFUmrY1fhKpMAGeyFuvKxmpsDZtmwVPuEGcGjL84ez2sMUGZK1HMZzyvSBZEvxzmWnHYdUxnLcFtDxsG9MkeXY"

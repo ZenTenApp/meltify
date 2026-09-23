@@ -72,6 +72,7 @@ func TestExtraChainsMatchGolden(t *testing.T) {
 		{"stellar", Stellar, GoldenStellar},
 		{"sui", Sui, GoldenSui},
 		{"silentpayment", SilentPayment, GoldenSilentPayment},
+		{"ton", Ton, GoldenTon},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

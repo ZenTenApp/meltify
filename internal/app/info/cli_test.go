@@ -64,6 +64,7 @@ func TestDeriveWalletAddresses(t *testing.T) {
 		{"stellar", derive.GoldenStellar},
 		{"sui", derive.GoldenSui},
 		{"silentpayment", derive.GoldenSilentPayment},
+		{"ton", derive.GoldenTon},
 		{"monero", derive.GoldenMoneroLegacyPrimary},
 		{"beldex", derive.GoldenBeldexLegacyPrimary},
 		{"bchat", goldenBchat(t)},
@@ -138,6 +139,7 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		"stablechain:" + derive.GoldenEthereum,
 		"stellar:" + derive.GoldenStellar,
 		"sui:" + derive.GoldenSui,
+		"ton:" + derive.GoldenTon,
 		"tron:" + derive.GoldenTron,
 		"worldchain:" + derive.GoldenEthereum,
 	}

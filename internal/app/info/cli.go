@@ -78,6 +78,10 @@ func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledA
 	if err != nil {
 		return nil, fmt.Errorf("could not derive sui address: %w", err)
 	}
+	tonAddr, err := derive.Ton(mnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("could not derive ton address: %w", err)
+	}
 	sp, err := derive.SilentPayment(mnemonic, "")
 	if err != nil {
 		return nil, fmt.Errorf("could not derive silent payment address: %w", err)
@@ -129,6 +133,7 @@ func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledA
 		{"stablechain", eth},
 		{"stellar", xlm},
 		{"sui", sui},
+		{"ton", tonAddr},
 		{"tron", trx},
 		{"worldchain", eth},
 	}, nil
@@ -157,7 +162,8 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 - OpenSSH public key with derived npub comment
 - Nostr npub / hex public key
 - wallet addresses as label:address (EVM chains reuse the Ethereum 0x;
-  Monero and Beldex use the 25-word CryptoNote legacy primary)
+  TON is Wallet V4R2 UQ at m/44'/607'/0'; Monero and Beldex use the
+  25-word CryptoNote legacy primary)
 
 All forms are derived from the same master seed, so the SSH key, raw seed, and
 MELT phrase are the same secret in different encodings; the Nostr keys and

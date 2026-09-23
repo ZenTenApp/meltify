@@ -29,79 +29,80 @@ type labeledAddress struct {
 	addr  string
 }
 
-// deriveWalletAddresses derives meltify-info chain addresses.
-// BIP39 chains use mnemonic; Monero and Beldex use the 25-word CryptoNote
-// legacy phrase from key (same as meltify-monero / meltify-beldex).
-// EVM aliases reuse the Ethereum 0x address.
-func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledAddress, error) {
+// deriveWalletAddresses derives meltify-info chain addresses and the BChat
+// chat ID. BIP39 chains use mnemonic; Monero and Beldex use the 25-word
+// CryptoNote legacy phrase from key (same as meltify-monero / meltify-beldex).
+// EVM aliases reuse the Ethereum 0x address. BChat is not a chain and is
+// returned separately so the report can print it after the address list.
+func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledAddress, string, error) {
 	eth, err := derive.Ethereum(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive ethereum address: %w", err)
+		return nil, "", fmt.Errorf("could not derive ethereum address: %w", err)
 	}
 	btc, err := derive.BitcoinNativeSegwit(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive bitcoin address: %w", err)
+		return nil, "", fmt.Errorf("could not derive bitcoin address: %w", err)
 	}
 	bch, err := derive.BitcoinCash(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive bitcoin cash address: %w", err)
+		return nil, "", fmt.Errorf("could not derive bitcoin cash address: %w", err)
 	}
 	sol, err := derive.Solana(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive solana address: %w", err)
+		return nil, "", fmt.Errorf("could not derive solana address: %w", err)
 	}
 	trx, err := derive.Tron(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive tron address: %w", err)
+		return nil, "", fmt.Errorf("could not derive tron address: %w", err)
 	}
 	ltc, err := derive.Litecoin(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive litecoin address: %w", err)
+		return nil, "", fmt.Errorf("could not derive litecoin address: %w", err)
 	}
 	doge, err := derive.Dogecoin(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive dogecoin address: %w", err)
+		return nil, "", fmt.Errorf("could not derive dogecoin address: %w", err)
 	}
 	atom, err := derive.Cosmos(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive cosmos address: %w", err)
+		return nil, "", fmt.Errorf("could not derive cosmos address: %w", err)
 	}
 	xrp, err := derive.Ripple(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive ripple address: %w", err)
+		return nil, "", fmt.Errorf("could not derive ripple address: %w", err)
 	}
 	xlm, err := derive.Stellar(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive stellar address: %w", err)
+		return nil, "", fmt.Errorf("could not derive stellar address: %w", err)
 	}
 	sui, err := derive.Sui(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive sui address: %w", err)
+		return nil, "", fmt.Errorf("could not derive sui address: %w", err)
 	}
 	tonAddr, err := derive.Ton(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive ton address: %w", err)
+		return nil, "", fmt.Errorf("could not derive ton address: %w", err)
 	}
 	sp, err := derive.SilentPayment(mnemonic, "")
 	if err != nil {
-		return nil, fmt.Errorf("could not derive silent payment address: %w", err)
+		return nil, "", fmt.Errorf("could not derive silent payment address: %w", err)
 	}
 
 	legacy, err := cryptonote.LegacyPhrase(key)
 	if err != nil {
-		return nil, fmt.Errorf("could not derive legacy CryptoNote seed: %w", err)
+		return nil, "", fmt.Errorf("could not derive legacy CryptoNote seed: %w", err)
 	}
 	xmr, err := derive.MoneroFromLegacy(legacy, 0)
 	if err != nil {
-		return nil, fmt.Errorf("could not derive monero address: %w", err)
+		return nil, "", fmt.Errorf("could not derive monero address: %w", err)
 	}
 	bdx, err := derive.BeldexFromLegacy(legacy, 0)
 	if err != nil {
-		return nil, fmt.Errorf("could not derive beldex address: %w", err)
+		return nil, "", fmt.Errorf("could not derive beldex address: %w", err)
 	}
 	chatID, err := bchat.DeriveChatID(cryptonote.LegacySeedBytes(key))
 	if err != nil {
-		return nil, fmt.Errorf("could not derive bchat identity: %w", err)
+		return nil, "", fmt.Errorf("could not derive bchat identity: %w", err)
 	}
 
 	return []labeledAddress{
@@ -109,7 +110,6 @@ func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledA
 		{"arc", eth},
 		{"avalanche", eth},
 		{"base", eth},
-		{"bchat", chatID},
 		{"beldex", bdx.PrimaryAddress},
 		{"bitcoin", btc},
 		{"bitcoincash", bch},
@@ -136,7 +136,7 @@ func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledA
 		{"ton", tonAddr},
 		{"tron", trx},
 		{"worldchain", eth},
-	}, nil
+	}, chatID, nil
 }
 
 // ExecuteInfo runs the meltify-info CLI.
@@ -164,6 +164,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 - wallet addresses as label:address (EVM chains reuse the Ethereum 0x;
   TON is Wallet V4R2 UQ at m/44'/607'/0'; Monero and Beldex use the
   25-word CryptoNote legacy primary)
+- BChat chat ID, printed after the chain list (not a crypto chain)
 
 All forms are derived from the same master seed, so the SSH key, raw seed, and
 MELT phrase are the same secret in different encodings; the Nostr keys and
@@ -229,7 +230,7 @@ func printReport(material *sshkey.Material) error {
 		return errors.New("failed to decode OpenSSH private key PEM block")
 	}
 
-	wallets, err := deriveWalletAddresses(material.Key, mnemonic24)
+	wallets, chatID, err := deriveWalletAddresses(material.Key, mnemonic24)
 	if err != nil {
 		return err
 	}
@@ -265,6 +266,8 @@ func printReport(material *sshkey.Material) error {
 	for _, w := range wallets {
 		out.Value(w.label + ":" + w.addr)
 	}
+	out.Blank()
+	out.Value("bchat:" + chatID)
 	out.Blank()
 	return nil
 }

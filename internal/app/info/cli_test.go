@@ -66,7 +66,7 @@ func TestDeriveWalletAddresses(t *testing.T) {
 		{"litecoin", derive.GoldenLitecoin},
 		{"dogecoin", derive.GoldenDogecoin},
 		{"cosmos", derive.GoldenCosmos},
-		{"ripple", derive.GoldenRipple},
+		{"xrpl", derive.GoldenRipple},
 		{"stellar", derive.GoldenStellar},
 		{"sui", derive.GoldenSui},
 		{"silentpayment", derive.GoldenSilentPayment},
@@ -138,7 +138,6 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		"optimism:" + derive.GoldenEthereum,
 		"plasma:" + derive.GoldenEthereum,
 		"polygon:" + derive.GoldenEthereum,
-		"ripple:" + derive.GoldenRipple,
 		"silentpayment:" + derive.GoldenSilentPayment,
 		"solana:" + derive.GoldenSolana,
 		"stablechain:" + derive.GoldenEthereum,
@@ -147,6 +146,7 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		"ton:" + derive.GoldenTon,
 		"tron:" + derive.GoldenTron,
 		"worldchain:" + derive.GoldenEthereum,
+		"xrpl:" + derive.GoldenRipple,
 		"bchat:" + goldenBchat(t),
 	}
 	last := -1
@@ -162,12 +162,12 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		last = idx
 	}
 
-	world := "worldchain:" + derive.GoldenEthereum
+	xrpl := "xrpl:" + derive.GoldenRipple
 	bchatLine := "bchat:" + goldenBchat(t)
-	idxWorld := strings.Index(captured, world)
+	idxXrpl := strings.Index(captured, xrpl)
 	idxBchat := strings.Index(captured, bchatLine)
-	if idxWorld >= 0 && idxBchat > idxWorld {
-		between := captured[idxWorld+len(world) : idxBchat]
+	if idxXrpl >= 0 && idxBchat > idxXrpl {
+		between := captured[idxXrpl+len(xrpl) : idxBchat]
 		if !strings.HasPrefix(between, "\n\n") {
 			t.Errorf("expected a blank line before bchat, got %q", between)
 		}

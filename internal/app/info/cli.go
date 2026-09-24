@@ -69,7 +69,7 @@ func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledA
 	}
 	xrp, err := derive.Ripple(mnemonic, "")
 	if err != nil {
-		return nil, "", fmt.Errorf("could not derive ripple address: %w", err)
+		return nil, "", fmt.Errorf("could not derive xrpl address: %w", err)
 	}
 	xlm, err := derive.Stellar(mnemonic, "")
 	if err != nil {
@@ -127,7 +127,6 @@ func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledA
 		{"optimism", eth},
 		{"plasma", eth},
 		{"polygon", eth},
-		{"ripple", xrp},
 		{"silentpayment", sp},
 		{"solana", sol},
 		{"stablechain", eth},
@@ -136,6 +135,7 @@ func deriveWalletAddresses(key *ed25519.PrivateKey, mnemonic string) ([]labeledA
 		{"ton", tonAddr},
 		{"tron", trx},
 		{"worldchain", eth},
+		{"xrpl", xrp},
 	}, chatID, nil
 }
 

@@ -23,9 +23,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-monero@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-polyseed@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-info@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-pgp@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-onion@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info` and `meltify-pgp` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, and `meltify-onion` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -48,7 +49,7 @@ Or read the private key from stdin:
 cat ~/.ssh/id_ed25519 | meltify
 ```
 
-Encrypted keys prompt for the existing SSH key passphrase.
+The OpenSSH private key must be password-protected. Meltify prompts for that passphrase.
 
 ## Brave Sync
 
@@ -135,6 +136,17 @@ meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
+## Onion (Tor v3)
+
+`meltify-onion` loads an Ed25519 OpenSSH private key and prints a deterministic Tor v3 `.onion` address. Pass `--output <dir>` to also write a Tor HiddenServiceDir (`hs_ed25519_secret_key`, `hs_ed25519_public_key`, `hostname`) that can be copied into `torrc` as `HiddenServiceDir`.
+
+```sh
+meltify-onion ~/.ssh/id_ed25519
+meltify-onion ~/.ssh/id_ed25519 --output ./hidden_service
+```
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
+
 ## Completions and man page
 
 ```sh
@@ -148,6 +160,7 @@ meltify-monero completion bash
 meltify-polyseed completion bash
 meltify-info completion bash
 meltify-pgp completion bash
+meltify-onion completion bash
 ```
 
 Generate a roff man page:
@@ -160,6 +173,7 @@ meltify-monero man
 meltify-polyseed man
 meltify-info man
 meltify-pgp man
+meltify-onion man
 ```
 
 ## Notes

@@ -32,7 +32,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 		Long: `meltify-brave runs meltify to extract secret Ed25519 seed material, then derives a deterministic 25-word seed phrase.
 
 The output is the 24-word charmbracelet/MELT seed phrase plus Brave Sync's daily 25th word appended.
-Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
+The OpenSSH private key must be password-protected; meltify-brave prompts for that passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-brave ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-brave
   meltify-brave ~/.ssh/id_ed25519 --subaccount subaccount-label`,

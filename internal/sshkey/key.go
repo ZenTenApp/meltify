@@ -39,14 +39,24 @@ func ReadKey(path string, stdin io.Reader) ([]byte, error) {
 	return b, nil
 }
 
-// LoadEd25519Key reads and parses an optionally encrypted Ed25519 OpenSSH private key.
+var errKeyNotPasswordProtected = errors.New("key is not password-protected: keys are required to be password-protected")
+
+// LoadEd25519Key reads and parses a password-protected Ed25519 OpenSSH private key.
+// Unprotected keys are rejected before a passphrase is prompted.
 func LoadEd25519Key(path string, stdin io.Reader) (*Material, error) {
 	keyBytes, err := ReadKey(path, stdin)
 	if err != nil {
 		return nil, err
 	}
+	if err := rejectUnprotectedKey(keyBytes); err != nil {
+		return nil, err
+	}
 
-	key, sourcePass, err := ParsePossiblyEncryptedEd25519Key(keyBytes, path)
+	pass, err := askKeyPassphrase(path)
+	if err != nil {
+		return nil, err
+	}
+	key, err := ParseEncryptedEd25519Key(keyBytes, pass)
 	if err != nil {
 		return nil, err
 	}
@@ -54,32 +64,39 @@ func LoadEd25519Key(path string, stdin io.Reader) (*Material, error) {
 	return &Material{
 		Key:           key,
 		PrivateKeyPEM: keyBytes,
-		SourcePass:    sourcePass,
+		SourcePass:    pass,
 	}, nil
 }
 
-// ParsePossiblyEncryptedEd25519Key parses an optionally encrypted Ed25519 OpenSSH private key.
-func ParsePossiblyEncryptedEd25519Key(keyBytes []byte, keyPath string) (*ed25519.PrivateKey, []byte, error) {
-	key, err := parsePrivateKey(keyBytes, nil)
-	var pass []byte
-	if err != nil && isPasswordError(err) {
-		pass, err = askKeyPassphrase(keyPath)
-		if err != nil {
-			return nil, nil, err
-		}
-		key, err = parsePrivateKey(keyBytes, pass)
-		if err != nil {
-			return nil, nil, fmt.Errorf("could not parse key with passphrase: %w", err)
-		}
-	} else if err != nil {
-		return nil, nil, fmt.Errorf("could not parse key: %w", err)
+// ParseEncryptedEd25519Key parses a password-protected Ed25519 OpenSSH private key.
+// Unprotected keys are rejected.
+func ParseEncryptedEd25519Key(keyBytes, passphrase []byte) (*ed25519.PrivateKey, error) {
+	if err := rejectUnprotectedKey(keyBytes); err != nil {
+		return nil, err
 	}
-
+	if len(passphrase) == 0 {
+		return nil, errors.New("passphrase is required")
+	}
+	key, err := parsePrivateKey(keyBytes, passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse key with passphrase: %w", err)
+	}
 	edKey, ok := key.(*ed25519.PrivateKey)
 	if !ok {
-		return nil, nil, unsupportedKeyTypeError(key)
+		return nil, unsupportedKeyTypeError(key)
 	}
-	return edKey, pass, nil
+	return edKey, nil
+}
+
+func rejectUnprotectedKey(keyBytes []byte) error {
+	_, err := parsePrivateKey(keyBytes, nil)
+	if err == nil {
+		return errKeyNotPasswordProtected
+	}
+	if isPasswordError(err) {
+		return nil
+	}
+	return fmt.Errorf("could not parse key: %w", err)
 }
 
 func parsePrivateKey(bts, pass []byte) (interface{}, error) {

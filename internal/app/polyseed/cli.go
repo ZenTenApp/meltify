@@ -108,8 +108,9 @@ seedify's --all-polyseeds. The same key, subaccount, and birthday always produce
 Use --birthday YYYY-MM to emit a single polyseed for that month together with the Monero primary
 address and subaddresses derived from it. The polyseed phrase is self-contained: restoring it in
 any standard Monero wallet reproduces exactly these addresses (no seed-offset passphrase is
-supported, since the polyseed format has no slot for one). Encrypted keys prompt for the existing
-SSH key passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
+supported, since the polyseed format has no slot for one). The OpenSSH private key must be
+password-protected; meltify-polyseed prompts for that passphrase. Use --subaccount to derive a
+deterministic subaccount key first.`,
 		Example: `  meltify-polyseed ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-polyseed
   meltify-polyseed ~/.ssh/id_ed25519 --subaccount subaccount-label

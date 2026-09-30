@@ -46,10 +46,10 @@ The output is an ASCII-armored PGP PRIVATE KEY BLOCK importable with gpg --impor
 a primary rsa key with [SC] usage and an encryption subkey with [E] usage.
 The creation timestamp is 2020-01-01 UTC so the OpenPGP fingerprint is stable.
 
-Encrypted SSH keys prompt for the existing SSH key passphrase. The OpenPGP
-secret is always passphrase-protected: enter a new passphrase, or pass
---reuse-passphrase to reuse the SSH key passphrase. Use --subaccount to derive
-a deterministic subaccount key first.`,
+The OpenSSH private key must be password-protected; meltify-pgp prompts for that
+passphrase. The OpenPGP secret is always passphrase-protected: enter a new
+passphrase, or pass --reuse-passphrase to reuse the SSH key passphrase. Use
+--subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com
   cat ~/.ssh/id_ed25519 | meltify-pgp --name "Alice" --email alice@example.com
   meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com --subaccount subaccount-label

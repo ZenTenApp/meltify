@@ -168,9 +168,9 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 
 All forms are derived from the same master seed, so the SSH key, raw seed, and
 MELT phrase are the same secret in different encodings; the Nostr keys and
-BIP39 wallet addresses are deterministically derived from it. Encrypted keys prompt
-for the existing SSH key passphrase. Use --subaccount to report a
-deterministic subaccount key.`,
+BIP39 wallet addresses are deterministically derived from it. The OpenSSH private
+key must be password-protected; meltify-info prompts for that passphrase. Use
+--subaccount to report a deterministic subaccount key.`,
 		Example: `  meltify-info ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-info
   meltify-info ~/.ssh/id_ed25519 --subaccount subaccount-label`,

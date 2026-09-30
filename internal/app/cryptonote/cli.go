@@ -106,7 +106,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo, coin CoinConfig) 
 		Short: fmt.Sprintf("Export %s seed and addresses from an Ed25519 OpenSSH key", coin.DisplayName),
 		Long: fmt.Sprintf(`%[1]s derives a deterministic %[2]s seed and addresses from an Ed25519 OpenSSH private key.
 
-Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to derive a deterministic subaccount key first.`, coin.BinaryName, coin.DisplayName),
+The OpenSSH private key must be password-protected; %[1]s prompts for that passphrase. Use --subaccount to derive a deterministic subaccount key first.`, coin.BinaryName, coin.DisplayName),
 		Example: fmt.Sprintf(`  %[1]s ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | %[1]s
   %[1]s ~/.ssh/id_ed25519 --subaccount subaccount-label`, coin.BinaryName),

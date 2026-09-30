@@ -47,8 +47,8 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 By default it prints the public .onion address. Pass --output <dir> to also write
 a Tor HiddenServiceDir (hs_ed25519_secret_key, hs_ed25519_public_key, hostname).
 
-Encrypted keys prompt for the existing SSH key passphrase. Use --subaccount to
-derive a deterministic subaccount key first.`,
+The OpenSSH private key must be password-protected; meltify-onion prompts for that
+passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-onion ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-onion
   meltify-onion ~/.ssh/id_ed25519 --output ./hidden_service

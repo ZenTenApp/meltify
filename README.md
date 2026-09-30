@@ -49,7 +49,7 @@ Or read the private key from stdin:
 cat ~/.ssh/id_ed25519 | meltify
 ```
 
-Encrypted keys prompt for the existing SSH key passphrase.
+The OpenSSH private key must be password-protected. Meltify prompts for that passphrase.
 
 ## Brave Sync
 

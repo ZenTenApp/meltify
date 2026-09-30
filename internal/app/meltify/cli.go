@@ -30,7 +30,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 		Long: `meltify extracts the raw 32-byte Ed25519 seed from an OpenSSH private key and prints it as lowercase hex.
 
 This output is secret key material. Do not pipe it to logs or untrusted commands.
-Encrypted keys prompt for the existing SSH key passphrase.`,
+The OpenSSH private key must be password-protected. Meltify prompts for that passphrase.`,
 		Example: `  meltify ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify
   meltify ~/.ssh/id_ed25519 --subaccount subaccount-label`,

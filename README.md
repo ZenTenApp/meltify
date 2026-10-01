@@ -24,9 +24,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-polyseed@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-info@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-pgp@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-onion@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-rsa@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, and `meltify-onion` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, and `meltify-rsa` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -147,6 +148,18 @@ meltify-onion ~/.ssh/id_ed25519 --output ./hidden_service
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
+## RSA
+
+`meltify-rsa` loads an Ed25519 OpenSSH private key and prints a deterministic RSA private key. Default encoding is OpenSSH PEM. `--openssl-compatible` writes an encrypted PKCS#8 PEM instead (`openssl pkey -check`). `--bits` defaults to 4096 (2048 and 3072 are also accepted). The derived secret is always passphrase-protected; `--reuse-passphrase` reuses the SSH key passphrase. Pass `--output <path>` to write a `0600` file instead of stdout.
+
+```sh
+meltify-rsa ~/.ssh/id_ed25519
+meltify-rsa ~/.ssh/id_ed25519 --output ~/.ssh/id_rsa_derived
+meltify-rsa ~/.ssh/id_ed25519 --openssl-compatible --output key.pem
+```
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
+
 ## Completions and man page
 
 ```sh
@@ -161,6 +174,7 @@ meltify-polyseed completion bash
 meltify-info completion bash
 meltify-pgp completion bash
 meltify-onion completion bash
+meltify-rsa completion bash
 ```
 
 Generate a roff man page:
@@ -174,6 +188,7 @@ meltify-polyseed man
 meltify-info man
 meltify-pgp man
 meltify-onion man
+meltify-rsa man
 ```
 
 ## Notes

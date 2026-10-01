@@ -3,17 +3,55 @@ package derive
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/ed25519"
 	"crypto/rsa"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
 )
 
-// validRSABits is the set of accepted RSA key sizes for PGP derivation.
+// DefaultRSABits is the RSA size used by meltify-rsa when --bits is omitted.
+const DefaultRSABits = 4096
+
+// validRSABits is the set of accepted RSA key sizes for RSA and PGP derivation.
 var validRSABits = map[int]struct{}{
 	2048: {},
 	3072: {},
 	4096: {},
+}
+
+// ValidRSABits reports whether bits is an accepted RSA size.
+func ValidRSABits(bits int) error {
+	if _, ok := validRSABits[bits]; !ok {
+		return fmt.Errorf("invalid RSA bit size %d: must be 2048, 3072, or 4096", bits)
+	}
+	return nil
+}
+
+// RSA deterministically derives an RSA private key from an Ed25519 private key.
+//
+// This matches seedify.DeriveRSAKeyFromEd25519: the Ed25519 seed is
+// domain-separated with the label "seedify:rsa-from-ed25519:", hashed with
+// SHA-256, and used as the AES-256-CTR seed for prime generation.
+//
+// bits must be 2048, 3072, or 4096. 4096 is strongly recommended.
+// This function is computationally expensive because it involves prime search.
+func RSA(key *ed25519.PrivateKey, bits int) (*rsa.PrivateKey, error) {
+	if key == nil {
+		return nil, errors.New("ed25519 key is required")
+	}
+	if err := ValidRSABits(bits); err != nil {
+		return nil, err
+	}
+
+	label := []byte("seedify:rsa-from-ed25519:")
+	input := make([]byte, len(label)+len(key.Seed()))
+	copy(input, label)
+	copy(input[len(label):], key.Seed())
+
+	return deriveRSAKeyFromDomainHash(sha256.Sum256(input), bits)
 }
 
 // rsaPublicExponent is the standard RSA public exponent (2^16 + 1 = 65537).

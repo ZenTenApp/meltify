@@ -25,9 +25,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-info@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-pgp@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-onion@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-rsa@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-dkim@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, and `meltify-rsa` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, and `meltify-dkim` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -160,6 +161,18 @@ meltify-rsa ~/.ssh/id_ed25519 --openssl-compatible --output key.pem
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
+## DKIM
+
+`meltify-dkim` loads an Ed25519 OpenSSH private key and derives a deterministic DKIM RSA keypair. The private key is unencrypted PKCS#8 PEM (`BEGIN PRIVATE KEY`), not passphrase-protected. `--selector` defaults to `mail`. `--bits` defaults to 4096 (2048 and 3072 are also accepted). Pass `--domain` to write `config/dkim/<domain>/<selector>.private` (0600) and `.public` (the DNS TXT value). Pass `--output <path>` to write only the private key.
+
+```sh
+meltify-dkim ~/.ssh/id_ed25519 --domain example.com
+meltify-dkim ~/.ssh/id_ed25519 --domain example.com --selector mail2026
+meltify-dkim ~/.ssh/id_ed25519 --output /etc/opendkim/keys/mail.private
+```
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
+
 ## Completions and man page
 
 ```sh
@@ -175,6 +188,7 @@ meltify-info completion bash
 meltify-pgp completion bash
 meltify-onion completion bash
 meltify-rsa completion bash
+meltify-dkim completion bash
 ```
 
 Generate a roff man page:
@@ -189,6 +203,7 @@ meltify-info man
 meltify-pgp man
 meltify-onion man
 meltify-rsa man
+meltify-dkim man
 ```
 
 ## Notes

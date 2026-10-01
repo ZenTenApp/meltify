@@ -17,6 +17,7 @@ Seedify is one CLI with many flags. Meltify is a family of sibling binaries (`cm
 | `--to-pgp` | `meltify-pgp` |
 | `--to-onion` | `meltify-onion` |
 | `--to-rsa` + `--openssl-compatible` | `meltify-rsa` |
+| `--to-dkim` | `meltify-dkim` (`--selector` / `--domain`) |
 
 `meltify-info` prints native SegWit BTC, BCH, ETH + EVM aliases, SOL, TRX, LTC, DOGE, ATOM, XRP, XLM, SUI, TON V4R2, silent payments, Monero and Beldex legacy primaries, plus BChat.
 
@@ -35,7 +36,6 @@ Exclusive seedify one-shot flags with no meltify sibling. There is **no** `--to-
 
 | Seedify | What it does |
 |---------|--------------|
-| `--to-dkim` | DKIM RSA key + DNS TXT (`--dkim-selector` / `--dkim-domain`) |
 | `--to-dnssec` | BIND RSASHA256 KSK/ZSK (`--dnssec-domain`, `--dnssec-ksk` / `--dnssec-zsk`) |
 | `--to-i2p` | I2P destination (Ed25519 signing + X25519 encryption) + `keys.dat` |
 | `--to-wireguard` | WireGuard static keypair (wg base64) |
@@ -84,7 +84,7 @@ Meltify-info only prints native SegWit `bc1q`. Seedify `--btc` also emits:
 
 If more siblings follow the pgp/onion pattern (`cmd/meltify-X`, `internal/app/X`, goldens vs seedify v1.36.0 `FixedSeed00to1f`, no seedify import):
 
-1. **dkim, dnssec, i2p, wireguard, jks** — dedicated binaries
+1. **dnssec, i2p, wireguard, jks** — dedicated binaries
 2. **brain-bunker / sshkey-qr** — cross-cutting flags, not new binaries
 3. Wallet extras (Zcash, Noble, Bitcoin WIF/xpub/PayNym) only if `meltify-info` should grow toward seedify `--full`
 

@@ -11,14 +11,11 @@ import (
 
 // ValidPGPBits reports whether bits is an accepted OpenPGP RSA size.
 func ValidPGPBits(bits int) error {
-	if _, ok := validRSABits[bits]; !ok {
-		return fmt.Errorf("invalid RSA bit size %d: must be 2048, 3072, or 4096", bits)
-	}
-	return nil
+	return ValidRSABits(bits)
 }
 
 // DefaultPGPBits is the OpenPGP RSA size used by meltify-pgp when --bits is omitted.
-const DefaultPGPBits = 4096
+const DefaultPGPBits = DefaultRSABits
 
 // pgpEpoch is the fixed creation timestamp stamped on all OpenPGP keys
 // derived by meltify. Using a well-known past date instead of a live

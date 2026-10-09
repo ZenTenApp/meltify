@@ -5,3 +5,5 @@
 coverage.out
 .piso
 .pi/tasks/
+.gopath/
+.gocache/

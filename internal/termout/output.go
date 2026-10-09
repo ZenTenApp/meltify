@@ -4,6 +4,7 @@ package termout
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-isatty"
@@ -102,6 +103,25 @@ func (o *CLIOut) Block(label, content string, sensitive bool) {
 // DoubleDelimitedBlock prints a ===== delimited block.
 func (o *CLIOut) DoubleDelimitedBlock(label, content string, sensitive bool) {
 	o.delimitedBlock("=====", label, content, sensitive)
+}
+
+// AsteriskDivider prints two full-width rows of asterisks between sections.
+func (o *CLIOut) AsteriskDivider() {
+	const width = 110
+	row := o.render(o.borderStyle, strings.Repeat("*", width))
+	fmt.Println(row)
+	fmt.Println(row)
+}
+
+// SharedEndBlock prints a BEGIN line and content line for each label, then a
+// single shared END line. It renders the two-part Monero seed envelope
+// (Unstoppable 24-word + Cake/Feather 25-word) as one block.
+func (o *CLIOut) SharedEndBlock(labels, contents []string, endLabel string) {
+	for i, label := range labels {
+		fmt.Println(o.render(o.borderStyle, "=====BEGIN "+label+"====="))
+		fmt.Println(o.render(o.sensitiveStyle, contents[i]))
+	}
+	fmt.Println(o.render(o.borderStyle, "=====END "+endLabel+"====="))
 }
 
 func (o *CLIOut) delimitedBlock(delimiter, label, content string, sensitive bool) {

@@ -54,6 +54,12 @@ const (
 
 	GoldenMoneroLegacyPrimary = "49HjJN4ZbLjDFqe3Mus7mPZBE6Q27cRGtPLfyuNejGdYZhvke36zj1xGq5kDCbSCXbc5TLTR7vygzVDYTcgFURLaLe4Gdds"
 	GoldenMoneroLegacySub0    = "89JZu9GXu4zavCrprHJBhqe93rCDYAXGS75C8qoi1DKuKQwCfbZMM3tHxwH5H7Mx5ZaTPoHrEcTBEXyKiHYt47L6Q8ar72s"
+
+	// Cake Wallet / Unstoppable BIP39 conversion of GoldenMnemonic24 (account 0).
+	GoldenCakeSpendKeyHex     = "957e481803fc73f4876b58d112579c77a6ad010eaff103af49405e83ad5ef40f"
+	GoldenCake25              = "autumn cunning eternal when delayed cause soil educated apex budget cake olympics utility soprano tilt unhappy liar cunning richly gleeful tiers rays vixen aces cunning"
+	GoldenCakePrimary         = "46DNbqv4kL5PP3i89Y2NJYSxMkDtFHZPpj4nEda1MRFC4kTHeywyxPj63zRav6ESWjUsF1qYHNu8rRzbGsbGcCGwT5bCHEo"
+	GoldenCakeSub0            = "86mTNi3FWyoDxtGvwuLJkFAEFpKauzHVo9e3Aha8uyxfjkVgo3oCYzhFYYTibgjigfK4PjN3yHPFQVcy3cQRPexbTiMtU7X"
 	GoldenBeldexLegacyPrimary = "bxdX8BhX3i3bqdxkyw9Ph2Ls3C1sCXvQaWhBcQTZ2FfbHgqNBWHYS22FcbXP23wp7NewRx9JuSNHdSNHMHuUo3rv14ptKXWMH"
 	GoldenBeldexLegacySub0    = "LXCLvss2tsGavCrprHJBhqe93rCDYAXGS75C8qoi1DKuKQwCfbZMM3tHxwH5H7Mx5ZaTPoHrEcTBEXyKiHYt47L6QD5WBxA"
 

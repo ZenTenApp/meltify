@@ -39,6 +39,10 @@ type CoinConfig struct {
 	// DeriveExtra disables the block.
 	ExtraLabel  string
 	DeriveExtra func(seed []byte) (string, error)
+	// MergeCake makes the Monero CLI print the legacy section and the
+	// Unstoppable/Cake section in one output, separated by a divider. Beldex
+	// leaves this false and keeps the single-section layout.
+	MergeCake bool
 }
 
 // BeldexConfig configures meltify-beldex.
@@ -65,7 +69,7 @@ var BeldexConfig = CoinConfig{
 	},
 }
 
-// MoneroConfig configures the future meltify-monero executable.
+// MoneroConfig configures meltify-monero.
 var MoneroConfig = CoinConfig{
 	BinaryName:   "meltify-monero",
 	DisplayName:  "Monero",
@@ -79,6 +83,7 @@ var MoneroConfig = CoinConfig{
 		}
 		return AddressSet{PrimaryAddress: keys.PrimaryAddress, Subaddresses: keys.Subaddresses}, nil
 	},
+	MergeCake: true,
 }
 
 // ExecuteBeldex runs the meltify-beldex CLI.
@@ -101,15 +106,18 @@ func Execute(args []string, stdin io.Reader, info cliutil.VersionInfo, coin Coin
 func newRootCommand(stdin io.Reader, info cliutil.VersionInfo, coin CoinConfig) *cobra.Command {
 	var subaccount string
 
-	rootCmd := &cobra.Command{
-		Use:   coin.BinaryName + " [key-path]",
-		Short: fmt.Sprintf("Export %s seed and addresses from an Ed25519 OpenSSH key", coin.DisplayName),
-		Long: fmt.Sprintf(`%[1]s derives a deterministic %[2]s seed and addresses from an Ed25519 OpenSSH private key.
+	long := fmt.Sprintf(`%[1]s derives a deterministic %[2]s seed and addresses from an Ed25519 OpenSSH private key.
 
-The OpenSSH private key must be password-protected; %[1]s prompts for that passphrase. Use --subaccount to derive a deterministic subaccount key first.`, coin.BinaryName, coin.DisplayName),
-		Example: fmt.Sprintf(`  %[1]s ~/.ssh/id_ed25519
+The OpenSSH private key must be password-protected; %[1]s prompts for that passphrase. Use --subaccount to derive a deterministic subaccount key first.`, coin.BinaryName, coin.DisplayName)
+	example := fmt.Sprintf(`  %[1]s ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | %[1]s
-  %[1]s ~/.ssh/id_ed25519 --subaccount subaccount-label`, coin.BinaryName),
+  %[1]s ~/.ssh/id_ed25519 --subaccount subaccount-label`, coin.BinaryName)
+
+	rootCmd := &cobra.Command{
+		Use:          coin.BinaryName + " [key-path]",
+		Short:        fmt.Sprintf("Export %s seed and addresses from an Ed25519 OpenSSH key", coin.DisplayName),
+		Long:         long,
+		Example:      example,
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -142,7 +150,23 @@ func runWithOptions(keyPath, subaccount string, stdin io.Reader, coin CoinConfig
 	return printCoinOutput(&key, coin)
 }
 
+func cakePhraseFromMnemonic(mnemonic string) (string, error) {
+	spend, err := derive.CakeSpendKey(mnemonic, "", 0)
+	if err != nil {
+		return "", fmt.Errorf("could not derive cake wallet spend key: %w", err)
+	}
+	phrase, err := LegacyPhraseFromBytes(spend)
+	if err != nil {
+		return "", fmt.Errorf("could not encode cake wallet 25-word seed: %w", err)
+	}
+	return phrase, nil
+}
+
 func printCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
+	if coin.MergeCake {
+		return printMergedCoinOutput(key, coin)
+	}
+
 	seed, err := legacySeedFromKey(key)
 	if err != nil {
 		return fmt.Errorf("failed to derive %s seed: %w", coin.DisplayName, err)
@@ -169,6 +193,76 @@ func printCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
 	if len(addresses.Subaddresses) > 0 {
 		out.BlankPair()
 		out.RawBorderBlock("----- "+coin.AddressLabel+" -----", subaddressLines(addresses.Subaddresses))
+	}
+	out.BlankPair()
+	return nil
+}
+
+// Labels for the merged meltify-monero output. The trailing space on the
+// Unstoppable label is intentional: the requested header renders it as
+// `... "mnemonic" =====`.
+const (
+	moneroUnstoppableSeedLabel = `MONERO LEGACY SEED for Unstoppable Wallet - 24 word "mnemonic" `
+	moneroCakeSeedLabel        = "MONERO LEGACY SEED for Cake/feather Wallet - 25 word"
+	moneroMergedSeedEndLabel   = "MONERO LEGACY SEED"
+)
+
+// printMergedCoinOutput prints the legacy CryptoNote section and the
+// Unstoppable/Cake section in one output, separated by an asterisk divider.
+// It is used by meltify-monero only; meltify-beldex keeps the single-section
+// layout.
+func printMergedCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
+	legacySeed, err := legacySeedFromKey(key)
+	if err != nil {
+		return fmt.Errorf("failed to derive %s seed: %w", coin.DisplayName, err)
+	}
+	legacyAddresses, err := coin.DeriveAddresses(legacySeed, defaultAddressCount)
+	if err != nil {
+		return fmt.Errorf("failed to derive %s addresses: %w", coin.DisplayName, err)
+	}
+
+	mnemonic24, err := derive.Mnemonic24(key)
+	if err != nil {
+		return fmt.Errorf("could not generate 24-word mnemonic: %w", err)
+	}
+	cakePhrase, err := cakePhraseFromMnemonic(mnemonic24)
+	if err != nil {
+		return err
+	}
+	cakeAddresses, err := coin.DeriveAddresses(cakePhrase, defaultAddressCount)
+	if err != nil {
+		return fmt.Errorf("failed to derive %s cake addresses: %w", coin.DisplayName, err)
+	}
+
+	out := termout.New()
+
+	// Section 1: the default CryptoNote legacy output, unchanged.
+	out.Blank()
+	out.DoubleDelimitedBlock(coin.SeedLabel, legacySeed, true)
+	out.BlankPair()
+	out.Block(strings.ToUpper(coin.DisplayName)+" PRIMARY ADDRESS", legacyAddresses.PrimaryAddress, false)
+	if len(legacyAddresses.Subaddresses) > 0 {
+		out.BlankPair()
+		out.RawBorderBlock("----- "+coin.AddressLabel+" -----", subaddressLines(legacyAddresses.Subaddresses))
+	}
+	out.BlankPair()
+
+	// Divider between the two sections.
+	out.AsteriskDivider()
+
+	// Section 2: the 24-word MELT phrase (Unstoppable) and the 25-word Cake
+	// phrase in one shared-end block, then the Cake addresses.
+	out.Blank()
+	out.SharedEndBlock(
+		[]string{moneroUnstoppableSeedLabel, moneroCakeSeedLabel},
+		[]string{mnemonic24, cakePhrase},
+		moneroMergedSeedEndLabel,
+	)
+	out.BlankPair()
+	out.Block("MONERO PRIMARY ADDRESS (CAKE WALLET)", cakeAddresses.PrimaryAddress, false)
+	if len(cakeAddresses.Subaddresses) > 0 {
+		out.BlankPair()
+		out.RawBorderBlock("----- MONERO ADDRESSES FROM CAKE WALLET 25-WORD SEED -----", subaddressLines(cakeAddresses.Subaddresses))
 	}
 	out.BlankPair()
 	return nil

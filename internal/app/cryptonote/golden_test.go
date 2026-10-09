@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/ZenTenApp/meltify/internal/cliutil"
 	"github.com/ZenTenApp/meltify/internal/derive"
 )
 
@@ -22,6 +23,50 @@ func TestLegacySeedMatchesGolden(t *testing.T) {
 	}
 	if phrase != derive.GoldenLegacy25 {
 		t.Errorf("legacy25 = %s, want %s", phrase, derive.GoldenLegacy25)
+	}
+}
+
+func TestCakePhraseFromFixedSeed(t *testing.T) {
+	key := ed25519.NewKeyFromSeed(derive.FixedSeed00to1f)
+	mnemonic, err := derive.Mnemonic24(&key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	phrase, err := cakePhraseFromMnemonic(mnemonic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if derive.GoldenCake25 == "" {
+		t.Fatalf("fill GoldenCake25 = %s", phrase)
+	}
+	if phrase != derive.GoldenCake25 {
+		t.Errorf("cake 25-word = %s, want %s", phrase, derive.GoldenCake25)
+	}
+	if phrase == derive.GoldenLegacy25 {
+		t.Fatal("Cake 25-word matched CryptoNote legacy phrase")
+	}
+
+	xmr, err := MoneroConfig.DeriveAddresses(phrase, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if derive.GoldenCakePrimary == "" {
+		t.Fatalf("fill GoldenCakePrimary = %s sub0 = %s", xmr.PrimaryAddress, xmr.Subaddresses[0])
+	}
+	if xmr.PrimaryAddress != derive.GoldenCakePrimary {
+		t.Errorf("cake primary = %s, want %s", xmr.PrimaryAddress, derive.GoldenCakePrimary)
+	}
+	if len(xmr.Subaddresses) < 1 || xmr.Subaddresses[0] != derive.GoldenCakeSub0 {
+		t.Errorf("cake sub0 = %v, want %s", xmr.Subaddresses, derive.GoldenCakeSub0)
+	}
+}
+
+func TestCakeFlagRemoved(t *testing.T) {
+	info := cliutil.VersionInfo{}
+	for _, coin := range []CoinConfig{MoneroConfig, BeldexConfig} {
+		if err := newRootCommand(nil, info, coin).ParseFlags([]string{"--cake"}); err == nil {
+			t.Errorf("%s accepted the removed --cake flag", coin.BinaryName)
+		}
 	}
 }
 

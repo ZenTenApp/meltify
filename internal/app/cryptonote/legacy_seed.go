@@ -33,6 +33,16 @@ func LegacyPhrase(key *ed25519.PrivateKey) (string, error) {
 	return legacySeedFromKey(key)
 }
 
+// LegacyPhraseFromBytes encodes a 32-byte spend key as a 25-word CryptoNote
+// mnemonic without reducing it. Cake Wallet already reduced the key modulo l.
+func LegacyPhraseFromBytes(keyBytes []byte) (string, error) {
+	words, err := moneroLegacyBytesToWords(keyBytes)
+	if err != nil {
+		return "", err
+	}
+	return strings.Join(words, " "), nil
+}
+
 // LegacySeedBytes returns the 32-byte CryptoNote seed encoded by LegacyPhrase
 // (scReduce32 of the raw Ed25519 seed).
 func LegacySeedBytes(key *ed25519.PrivateKey) []byte {

@@ -94,7 +94,9 @@ meltify-monero ~/.ssh/id_ed25519
 
 Without `--subaccount`, the 25-word Monero legacy seed is identical to the Beldex 25-word seed from the same key, because both are the unprefixed CryptoNote legacy mnemonic of the raw Ed25519 seed.
 
-It supports `--subaccount` / `-s`, and the same completion/manpage commands as `meltify`.
+The output has two sections separated by a row of asterisks. The first is the default CryptoNote legacy section above. The second is the Unstoppable/Cake section: it starts with the 24-word MELT BIP39 phrase (restore this in Unstoppable), then the 25-word Cake/Feather seed that Unstoppable displays for that phrase, then the corresponding `4…` addresses. The Cake keys come from the BIP39 phrase with no Keccak (`m/44'/128'/0'/0/0`); the 25-word Cake seed is not the CryptoNote legacy seed printed in the first section.
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`.
 
 ## Polyseed (Monero 16-word)
 

@@ -26,9 +26,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-pgp@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-onion@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-rsa@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-dkim@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-dnssec@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, and `meltify-dkim` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, and `meltify-dnssec` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -175,7 +176,19 @@ meltify-dkim ~/.ssh/id_ed25519 --output /etc/opendkim/keys/mail.private
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
-## Completions and man page
+## DNSSEC
+
+`meltify-dnssec` loads an Ed25519 OpenSSH private key and derives a deterministic DNSSEC RSASHA256 (algorithm 8) keypair for a zone. `--domain` is required. `--ksk` (default) uses DNSKEY flags 257; `--zsk` uses 256. `--bits` defaults to 4096 (2048 and 3072 are also accepted). The zone name, algorithm, role, and bit size are mixed into the derivation, so each zone and role gets a distinct key.
+
+By default it prints the public DNSKEY and DS records to stdout. Pass `--output <dir>` to write BIND-compatible files instead: `K<zone>.+008+<keytag>.key` (0644), `.private` (0600, `Private-key-format: v1.3`), and `.ds` (0644, SHA-256).
+
+```sh
+meltify-dnssec ~/.ssh/id_ed25519 --domain example.com
+meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --ksk --output ./dnssec-keys
+meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --zsk --output ./dnssec-keys
+```
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
 ```sh
 meltify completion bash
@@ -191,6 +204,7 @@ meltify-pgp completion bash
 meltify-onion completion bash
 meltify-rsa completion bash
 meltify-dkim completion bash
+meltify-dnssec completion bash
 ```
 
 Generate a roff man page:
@@ -206,6 +220,7 @@ meltify-pgp man
 meltify-onion man
 meltify-rsa man
 meltify-dkim man
+meltify-dnssec man
 ```
 
 ## Notes

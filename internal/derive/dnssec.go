@@ -33,6 +33,8 @@ const (
 	dnssecDSDigestSHA256     = 2
 	dnssecExtendedExpLenMark = 0
 	dnssecByteShift          = 8
+	dnssecKeyTagShift        = 16
+	dnssecKeyTagMask         = 0xffff
 	dnssecMaxLabelLen        = 63
 	dnssecRDATAHeaderLen     = 4
 )
@@ -187,8 +189,8 @@ func dnssecKeyTag(rdata []byte) uint16 {
 			ac += uint32(b)
 		}
 	}
-	ac += (ac >> 16) & 0xffff
-	return uint16(ac & 0xffff) //nolint:gosec // Key tag is defined as the low 16 bits.
+	ac += (ac >> dnssecKeyTagShift) & dnssecKeyTagMask
+	return uint16(ac & dnssecKeyTagMask) //nolint:gosec // Key tag is defined as the low 16 bits.
 }
 
 func dnsNameToWire(domain string) ([]byte, error) {

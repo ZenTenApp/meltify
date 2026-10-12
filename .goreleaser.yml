@@ -58,6 +58,10 @@ before:
     - sh -c 'go run ./cmd/meltify-dnssec completion "zsh" >./completions/meltify-dnssec.zsh'
     - sh -c 'go run ./cmd/meltify-dnssec completion "fish" >./completions/meltify-dnssec.fish'
     - sh -c 'go run ./cmd/meltify-dnssec man | gzip -c >./manpages/meltify-dnssec.1.gz'
+    - sh -c 'go run ./cmd/meltify-i2p completion "bash" >./completions/meltify-i2p.bash'
+    - sh -c 'go run ./cmd/meltify-i2p completion "zsh" >./completions/meltify-i2p.zsh'
+    - sh -c 'go run ./cmd/meltify-i2p completion "fish" >./completions/meltify-i2p.fish'
+    - sh -c 'go run ./cmd/meltify-i2p man | gzip -c >./manpages/meltify-i2p.1.gz'
 
 gomod:
   proxy: false
@@ -134,6 +138,10 @@ builds:
     id: meltify-dnssec
     main: ./cmd/meltify-dnssec
     binary: meltify-dnssec
+  - <<: *meltify_build
+    id: meltify-i2p
+    main: ./cmd/meltify-i2p
+    binary: meltify-i2p
 
 archives:
   - id: default
@@ -149,6 +157,7 @@ archives:
       - meltify-rsa
       - meltify-dkim
       - meltify-dnssec
+      - meltify-i2p
     formats:
       - tar.gz
     format_overrides:
@@ -183,6 +192,7 @@ nfpms:
       - meltify-rsa
       - meltify-dkim
       - meltify-dnssec
+      - meltify-i2p
     vendor: ZenTenApp
     file_name_template: >-
       {{- trimsuffix .ConventionalFileName .ConventionalExtension -}}
@@ -281,6 +291,14 @@ nfpms:
         dst: /usr/share/zsh/site-functions/_meltify-dnssec
       - src: ./manpages/meltify-dnssec.1.gz
         dst: /usr/share/man/man1/meltify-dnssec.1.gz
+      - src: ./completions/meltify-i2p.bash
+        dst: /etc/bash_completion.d/meltify-i2p
+      - src: ./completions/meltify-i2p.fish
+        dst: /usr/share/fish/vendor_completions.d/meltify-i2p.fish
+      - src: ./completions/meltify-i2p.zsh
+        dst: /usr/share/zsh/site-functions/_meltify-i2p
+      - src: ./manpages/meltify-i2p.1.gz
+        dst: /usr/share/man/man1/meltify-i2p.1.gz
     rpm:
       signature:
         key_file: '{{ if ne (index .Env "GPG_KEY_PATH") "" }}{{ .Env.GPG_KEY_PATH }}{{ else }}{{ end }}'
@@ -310,6 +328,7 @@ brews:
       bin.install "meltify-rsa"
       bin.install "meltify-dkim"
       bin.install "meltify-dnssec"
+      bin.install "meltify-i2p"
       bash_completion.install "completions/meltify.bash" => "meltify"
       bash_completion.install "completions/meltify-brave.bash" => "meltify-brave"
       bash_completion.install "completions/meltify-beldex.bash" => "meltify-beldex"
@@ -321,6 +340,7 @@ brews:
       bash_completion.install "completions/meltify-rsa.bash" => "meltify-rsa"
       bash_completion.install "completions/meltify-dkim.bash" => "meltify-dkim"
       bash_completion.install "completions/meltify-dnssec.bash" => "meltify-dnssec"
+      bash_completion.install "completions/meltify-i2p.bash" => "meltify-i2p"
       zsh_completion.install "completions/meltify.zsh" => "_meltify"
       zsh_completion.install "completions/meltify-brave.zsh" => "_meltify-brave"
       zsh_completion.install "completions/meltify-beldex.zsh" => "_meltify-beldex"
@@ -332,6 +352,7 @@ brews:
       zsh_completion.install "completions/meltify-rsa.zsh" => "_meltify-rsa"
       zsh_completion.install "completions/meltify-dkim.zsh" => "_meltify-dkim"
       zsh_completion.install "completions/meltify-dnssec.zsh" => "_meltify-dnssec"
+      zsh_completion.install "completions/meltify-i2p.zsh" => "_meltify-i2p"
       fish_completion.install "completions/meltify.fish"
       fish_completion.install "completions/meltify-brave.fish"
       fish_completion.install "completions/meltify-beldex.fish"
@@ -343,6 +364,7 @@ brews:
       fish_completion.install "completions/meltify-rsa.fish"
       fish_completion.install "completions/meltify-dkim.fish"
       fish_completion.install "completions/meltify-dnssec.fish"
+      fish_completion.install "completions/meltify-i2p.fish"
       man1.install "manpages/meltify.1.gz"
       man1.install "manpages/meltify-brave.1.gz"
       man1.install "manpages/meltify-beldex.1.gz"
@@ -463,6 +485,7 @@ dockers_v2:
       - meltify-rsa
       - meltify-dkim
       - meltify-dnssec
+      - meltify-i2p
     dockerfile: Dockerfile
     images:
       - ghcr.io/zentenapp/meltify

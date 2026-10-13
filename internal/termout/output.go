@@ -193,6 +193,20 @@ func (o *CLIOut) SensitiveField(value, description string) {
 	fmt.Printf("%s %s\n", o.render(o.sensitiveStyle, value), o.render(o.labelStyle, "("+description+")"))
 }
 
+// NamedSecret prints a three-line entry: the name, the value, and a
+// parenthesized description, followed by a blank line. Secret values are
+// rendered with the sensitive style when sensitive is true.
+func (o *CLIOut) NamedSecret(name, value, description string, sensitive bool) {
+	fmt.Println(o.render(o.labelStyle, name))
+	style := o.valueStyle
+	if sensitive {
+		style = o.sensitiveStyle
+	}
+	fmt.Println(o.render(style, value))
+	fmt.Println(o.render(o.labelStyle, "("+description+")"))
+	fmt.Println()
+}
+
 // TreeField prints "└─ value (description)" like seedify's nested fields.
 func (o *CLIOut) TreeField(value, description string) {
 	const branch = "└─"

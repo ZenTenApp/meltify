@@ -21,6 +21,7 @@ Seedify is one CLI with many flags. Meltify is a family of sibling binaries (`cm
 | `--to-dnssec` | `meltify-dnssec` (`--domain` / `--ksk` / `--zsk`) |
 | `--to-i2p` | `meltify-i2p` (default prints b32 + secrets; `--output` writes `keys.dat`) |
 | `--to-wireguard` | `meltify-wireguard` (wg base64 static keypair on stdout) |
+| `--to-jks` | `meltify-jks` (`--alias` / `--output` / `--dn` / `--validity`; writes a `.jks`) |
 
 `meltify-info` prints native SegWit BTC, BCH, ETH + EVM aliases, SOL, TRX, LTC, DOGE, ATOM, XRP, XLM, SUI, TON V4R2, silent payments, Monero and Beldex legacy primaries, plus BChat.
 
@@ -39,7 +40,6 @@ Exclusive seedify one-shot flags with no meltify sibling. There is **no** `--to-
 
 | Seedify | What it does |
 |---------|--------------|
-| `--to-jks` | RSA + self-signed cert as a Java KeyStore |
 | `--sshkey-qr` | One-line OpenSSH private key + terminal QR |
 | `--brain-bunker` + `--brain-bunker-kdf-rounds` + `--brain-bunker-key-passphrase` | Ephemeral Ed25519 SSH key from a bunker secret; all later output uses that key |
 
@@ -84,8 +84,7 @@ Meltify-info only prints native SegWit `bc1q`. Seedify `--btc` also emits:
 
 If more siblings follow the pgp/onion pattern (`cmd/meltify-X`, `internal/app/X`, goldens vs seedify v1.36.0 `FixedSeed00to1f`, no seedify import):
 
-1. **jks** — dedicated binary
-2. **brain-bunker / sshkey-qr** — cross-cutting flags, not new binaries
-3. Wallet extras (Zcash, Noble, Bitcoin WIF/xpub/PayNym) only if `meltify-info` should grow toward seedify `--full`
+1. **brain-bunker / sshkey-qr** — cross-cutting flags, not new binaries
+2. Wallet extras (Zcash, Noble, Bitcoin WIF/xpub/PayNym) only if `meltify-info` should grow toward seedify `--full`
 
 Do not keep a seedify module dependency. Take inspiration from the v1.36.0 source and lock behavior with in-tree goldens.

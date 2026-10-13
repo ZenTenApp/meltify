@@ -27,9 +27,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-onion@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-rsa@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-dkim@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-dnssec@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-i2p@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, and `meltify-dnssec` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, and `meltify-i2p` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -190,6 +191,17 @@ meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --zsk --output ./dnssec-ke
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
+## I2P
+
+`meltify-i2p` loads an Ed25519 OpenSSH private key and derives a deterministic I2P Destination (Ed25519 signing key plus X25519 encryption key). By default it prints the `.b32.i2p` address, the X25519 private scalar, and the Ed25519 seed. Pass `--output <dir>` to write the i2pd `keys.dat` file (`0600`) instead, suitable for a tunnel with `keys = keys.dat`.
+
+```sh
+meltify-i2p ~/.ssh/id_ed25519
+meltify-i2p ~/.ssh/id_ed25519 --output ./i2p-keys
+```
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
+
 ```sh
 meltify completion bash
 meltify completion zsh
@@ -205,6 +217,7 @@ meltify-onion completion bash
 meltify-rsa completion bash
 meltify-dkim completion bash
 meltify-dnssec completion bash
+meltify-i2p completion bash
 ```
 
 Generate a roff man page:
@@ -221,6 +234,7 @@ meltify-onion man
 meltify-rsa man
 meltify-dkim man
 meltify-dnssec man
+meltify-i2p man
 ```
 
 ## Notes

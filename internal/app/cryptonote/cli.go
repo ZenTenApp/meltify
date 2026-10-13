@@ -199,11 +199,11 @@ func printCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
 }
 
 // Labels for the merged meltify-monero output. The trailing space on the
-// Unstoppable label is intentional: the requested header renders it as
-// `... "mnemonic" =====`.
+// Unstoppable label is intentional: the header renders as
+// `=====BEGIN MONERO (Unstoppable) 24-WORD SEED =====`.
 const (
-	moneroUnstoppableSeedLabel = `MONERO LEGACY SEED for Unstoppable Wallet - 24 word "mnemonic" `
-	moneroCakeSeedLabel        = "MONERO LEGACY SEED for Cake/feather Wallet - 25 word"
+	moneroUnstoppableSeedLabel = "MONERO (Unstoppable) 24-WORD SEED "
+	moneroCakeSeedLabel        = "MONERO (Cake, Feather) 25-WORD SEED"
 	moneroMergedSeedEndLabel   = "MONERO LEGACY SEED"
 )
 

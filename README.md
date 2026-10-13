@@ -28,9 +28,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-rsa@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-dkim@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-dnssec@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-i2p@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-wireguard@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, and `meltify-i2p` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, `meltify-i2p`, and `meltify-wireguard` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -202,6 +203,18 @@ meltify-i2p ~/.ssh/id_ed25519 --output ./i2p-keys
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
+## WireGuard
+
+`meltify-wireguard` loads an Ed25519 OpenSSH private key and derives a deterministic WireGuard static keypair. It prints the private and public keys as standard base64, the same format produced by `wg genkey` / `wg pubkey`, ready to paste into a WireGuard `[Interface]` or `[Peer]` section.
+
+```sh
+meltify-wireguard ~/.ssh/id_ed25519
+```
+
+The private key is secret key material: it is printed to stdout, so do not pipe it to logs or untrusted commands.
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
+
 ```sh
 meltify completion bash
 meltify completion zsh
@@ -218,6 +231,7 @@ meltify-rsa completion bash
 meltify-dkim completion bash
 meltify-dnssec completion bash
 meltify-i2p completion bash
+meltify-wireguard completion bash
 ```
 
 Generate a roff man page:
@@ -235,6 +249,7 @@ meltify-rsa man
 meltify-dkim man
 meltify-dnssec man
 meltify-i2p man
+meltify-wireguard man
 ```
 
 ## Notes

@@ -29,9 +29,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-dkim@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-dnssec@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-i2p@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-wireguard@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-jks@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, `meltify-i2p`, and `meltify-wireguard` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, `meltify-i2p`, `meltify-wireguard`, and `meltify-jks` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -215,6 +216,25 @@ The private key is secret key material: it is printed to stdout, so do not pipe 
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
+## Java KeyStore
+
+`meltify-jks` loads an Ed25519 OpenSSH private key and derives a deterministic RSA private key plus self-signed X.509 certificate, then writes a password-protected Java KeyStore (`.jks`) to `--output` (`0600`). `--alias` and `--output` are required; `--dn` defaults to `CN=<alias>` and `--validity` to 10000 days. It also prints the Android signing secrets (keystore base64, alias, store password, key password) for CI/CD.
+
+```sh
+meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks
+meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --dn "CN=Zenten, OU=Mobile, O=ZenTen"
+```
+
+The keystore is always password-protected: enter a new passphrase, pass `--reuse-passphrase` to reuse the SSH key passphrase, or supply `--store-password` (mutually exclusive with `--reuse-passphrase`). The key entry defaults to the store password; use `--key-password` to set a separate password. Both passwords must be non-empty. These flags do not replace the SSH key passphrase prompt.
+
+```bash
+meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --store-password "$STORE_PASSWORD" --key-password "$KEY_PASSWORD"
+```
+
+Password flags can expose secrets in shell history and process listings; prefer the interactive prompt when possible.
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
+
 ```sh
 meltify completion bash
 meltify completion zsh
@@ -232,6 +252,7 @@ meltify-dkim completion bash
 meltify-dnssec completion bash
 meltify-i2p completion bash
 meltify-wireguard completion bash
+meltify-jks completion bash
 ```
 
 Generate a roff man page:
@@ -250,6 +271,7 @@ meltify-dkim man
 meltify-dnssec man
 meltify-i2p man
 meltify-wireguard man
+meltify-jks man
 ```
 
 ## Notes

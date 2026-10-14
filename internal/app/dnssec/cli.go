@@ -35,6 +35,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 		subaccount string
 		output     string
 		domain     string
+		algorithm  string
 		bits       int
 		ksk        bool
 		zsk        bool
@@ -42,22 +43,24 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 
 	rootCmd := &cobra.Command{
 		Use:   binaryName + " [key-path]",
-		Short: "Export a deterministic DNSSEC RSASHA256 keypair from an Ed25519 OpenSSH key",
+		Short: "Export a deterministic DNSSEC keypair from an Ed25519 OpenSSH key",
 		Long: `meltify-dnssec derives a deterministic BIND-compatible DNSSEC keypair from an Ed25519 OpenSSH private key.
 
-Only algorithm 8 (RSASHA256) is supported. The zone name, algorithm, KSK/ZSK role,
-and RSA bit size are mixed into the derivation, so each zone and role gets a
-cryptographically distinct key.
+Algorithms 15 (ED25519, default) and 8 (RSASHA256) are supported. The zone name,
+algorithm, KSK/ZSK role, and bit size are mixed into the derivation, so each zone,
+algorithm, and role gets a cryptographically distinct key. --bits applies only to
+RSASHA256; for ED25519 it is ignored.
 
 By default it prints the public DNSKEY and DS records to stdout. Pass
 --output <dir> to write BIND files instead:
-  K<zone>.+008+<keytag>.key      public DNSKEY RR (0644)
-  K<zone>.+008+<keytag>.private  private key, BIND v1.3 format (0600)
-  K<zone>.+008+<keytag>.ds       SHA-256 DS RR for the parent zone (0644)
+  K<zone>.+<alg>+<keytag>.key      public DNSKEY RR (0644)
+  K<zone>.+<alg>+<keytag>.private  private key, BIND v1.3 format (0600)
+  K<zone>.+<alg>+<keytag>.ds       SHA-256 DS RR for the parent zone (0644)
 
 The OpenSSH private key must be password-protected; meltify-dnssec prompts for
 that passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-dnssec ~/.ssh/id_ed25519 --domain example.com
+  meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --algorithm RSASHA256 --bits 4096
   meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --ksk --output ./dnssec-keys
   meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --zsk --output ./dnssec-keys
   cat ~/.ssh/id_ed25519 | meltify-dnssec --domain example.com
@@ -76,12 +79,13 @@ that passphrase. Use --subaccount to derive a deterministic subaccount key first
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, output, domain, bits, ksk, zsk, stdin)
+			return runWithOptions(keyPath, subaccount, output, domain, algorithm, bits, ksk, zsk, stdin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
 	rootCmd.Flags().StringVar(&domain, "domain", "", "Zone name for DNSSEC output, e.g. example.com (required)")
-	rootCmd.Flags().IntVar(&bits, "bits", derive.DefaultRSABits, "RSA key size in bits (2048, 3072, or 4096)")
+	rootCmd.Flags().StringVar(&algorithm, "algorithm", "ED25519", "DNSSEC algorithm: ED25519 (15, default) or RSASHA256 (8)")
+	rootCmd.Flags().IntVar(&bits, "bits", derive.DefaultRSABits, "RSA key size in bits for RSASHA256 (2048, 3072, or 4096); ignored for ED25519")
 	rootCmd.Flags().BoolVar(&ksk, "ksk", false, "Generate a key-signing key with DNSKEY flags 257 (default)")
 	rootCmd.Flags().BoolVar(&zsk, "zsk", false, "Generate a zone-signing key with DNSKEY flags 256")
 	rootCmd.Flags().StringVar(&output, "output", "", "Write BIND .key/.private/.ds files into this directory instead of printing records")
@@ -90,15 +94,22 @@ that passphrase. Use --subaccount to derive a deterministic subaccount key first
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount, output, domain string, bits int, ksk, zsk bool, stdin io.Reader) error {
+func runWithOptions(keyPath, subaccount, output, domain, algorithmName string, bits int, ksk, zsk bool, stdin io.Reader) error {
 	if domain == "" {
 		return errors.New("--domain is required")
 	}
 	if ksk && zsk {
 		return errors.New("--ksk and --zsk are mutually exclusive")
 	}
-	if err := derive.ValidRSABits(bits); err != nil {
-		return fmt.Errorf("invalid --bits: %w", err)
+
+	algorithm, err := derive.ParseDNSSECAlgorithm(algorithmName)
+	if err != nil {
+		return fmt.Errorf("invalid --algorithm: %w", err)
+	}
+	if algorithm == derive.DNSSECAlgorithmRSASHA256 {
+		if err := derive.ValidRSABits(bits); err != nil {
+			return fmt.Errorf("invalid --bits: %w", err)
+		}
 	}
 
 	flags := derive.DNSSECKSKFlags
@@ -114,9 +125,13 @@ func runWithOptions(keyPath, subaccount, output, domain string, bits int, ksk, z
 		return fmt.Errorf("could not activate subaccount: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Deriving %d-bit DNSSEC RSASHA256 keypair for %s (this may take a moment)...\n", bits, domain)
+	if algorithm == derive.DNSSECAlgorithmED25519 {
+		fmt.Fprintf(os.Stderr, "Deriving ED25519 DNSSEC keypair for %s...\n", domain)
+	} else {
+		fmt.Fprintf(os.Stderr, "Deriving %d-bit DNSSEC RSASHA256 keypair for %s (this may take a moment)...\n", bits, domain)
+	}
 
-	pair, err := derive.DNSSEC(material.Key, domain, derive.DNSSECAlgorithmRSASHA256, flags, bits)
+	pair, err := derive.DNSSEC(material.Key, domain, algorithm, flags, bits)
 	if err != nil {
 		return fmt.Errorf("could not derive DNSSEC keypair: %w", err)
 	}

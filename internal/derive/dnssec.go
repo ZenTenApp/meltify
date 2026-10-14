@@ -11,13 +11,21 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 )
 
 // DNSSEC algorithm numbers.
 const (
-	// DNSSECAlgorithmRSASHA256 is DNSSEC algorithm 8 (RSASHA256).
+	// DNSSECAlgorithmRSASHA256 is DNSSEC algorithm 8 (RSASHA256), an RSA key.
 	DNSSECAlgorithmRSASHA256 = 8
+
+	// DNSSECAlgorithmED25519 is DNSSEC algorithm 15 (ED25519), an Ed25519 key.
+	DNSSECAlgorithmED25519 = 15
 )
+
+// DefaultDNSSECAlgorithm is the algorithm used by meltify-dnssec when
+// --algorithm is omitted.
+const DefaultDNSSECAlgorithm = DNSSECAlgorithmED25519
 
 // DNSSEC DNSKEY flag values.
 const (
@@ -27,6 +35,11 @@ const (
 	// DNSSECZSKFlags marks a zone-signing key (flags 256).
 	DNSSECZSKFlags = 256
 )
+
+// dnssecEd25519LabelBits is the sentinel bit size folded into the
+// domain-separation label for ED25519 (algorithm 15) keys, which have no RSA
+// bit size. It is fixed so the label keeps the same shape for both algorithms.
+const dnssecEd25519LabelBits = 256
 
 const (
 	dnssecProtocol           = 3
@@ -44,7 +57,7 @@ type DNSSECKeypair struct {
 	// Domain is the canonical absolute owner name, ending in a dot.
 	Domain string
 
-	// Algorithm is the DNSSEC algorithm number. Currently only 8 (RSASHA256) is supported.
+	// Algorithm is the DNSSEC algorithm number: 8 (RSASHA256) or 15 (ED25519).
 	Algorithm int
 
 	// Flags is the DNSKEY flags field: 257 for KSK, 256 for ZSK.
@@ -53,10 +66,10 @@ type DNSSECKeypair struct {
 	// KeyTag is the DNSSEC key tag/key ID computed from DNSKEY RDATA.
 	KeyTag uint16
 
-	// FileBase is the BIND-style basename without extension, e.g. Kexample.com.+008+33206.
+	// FileBase is the BIND-style basename without extension, e.g. Kexample.com.+015+30108.
 	FileBase string
 
-	// PublicKeyBase64 is the DNSSEC RSA public key field, base64-encoded.
+	// PublicKeyBase64 is the DNSSEC public key field, base64-encoded.
 	PublicKeyBase64 string
 
 	// DNSKEYRecord is the public DNSKEY RR suitable for a zone file.
@@ -70,31 +83,62 @@ type DNSSECKeypair struct {
 
 	// PrivateKeyFile is the content of the BIND .private file.
 	PrivateKeyFile []byte
+
+	// Ed25519Seed is the derived 32-byte Ed25519 seed for algorithm 15; nil for
+	// algorithm 8, whose private key lives in PrivateKeyFile.
+	Ed25519Seed []byte
 }
 
-// DNSSEC deterministically derives a BIND-compatible DNSSEC RSA keypair from an
-// Ed25519 private key.
+// ParseDNSSECAlgorithm parses a DNSSEC algorithm name or number. Accepted
+// values are "8" / "RSASHA256" and "15" / "ED25519", case-insensitively.
+func ParseDNSSECAlgorithm(value string) (int, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "8", "rsasha256", "rsa-sha256":
+		return DNSSECAlgorithmRSASHA256, nil
+	case "15", "ed25519":
+		return DNSSECAlgorithmED25519, nil
+	default:
+		return 0, fmt.Errorf("unsupported DNSSEC algorithm %q: use 8 (RSASHA256) or 15 (ED25519)", value)
+	}
+}
+
+// DNSSEC deterministically derives a BIND-compatible DNSSEC keypair from an
+// Ed25519 private key, stamped with the current UTC time.
 //
-// This matches seedify.DeriveDNSSECKeypair. Only algorithm 8 (RSASHA256) is
-// supported. The domain, algorithm, flags, and RSA bit size are included in the
+// This matches seedify.DeriveDNSSECKeypair for algorithm 8. Algorithm 15
+// (ED25519) is a meltify extension: it derives an Ed25519 keypair from
+// SHA-256("seedify:dnssec:<domain>:15:<flags>:256:" || seed) and has no seedify
+// equivalent. The domain, algorithm, flags, and bits are included in the
 // domain-separation label so that KSK/ZSK keys and keys for different zones are
-// cryptographically distinct.
+// cryptographically distinct. For algorithm 15 the bits input is ignored and
+// the sentinel 256 is used instead.
 //
-// flags must be DNSSECKSKFlags (257) or DNSSECZSKFlags (256). bits must be
-// 2048, 3072, or 4096. The output includes BIND-style .key/.private file
-// contents plus DNSKEY and SHA-256 DS records.
+// flags must be DNSSECKSKFlags (257) or DNSSECZSKFlags (256). For algorithm 8,
+// bits must be 2048, 3072, or 4096. The output includes BIND-style .key/.private
+// file contents plus DNSKEY and SHA-256 DS records.
 func DNSSEC(key *ed25519.PrivateKey, domain string, algorithm, flags, bits int) (*DNSSECKeypair, error) {
+	return DNSSECAt(key, domain, algorithm, flags, bits, time.Now().UTC())
+}
+
+// DNSSECAt is DNSSEC with an explicit creation timestamp, which is stamped on
+// the BIND .private file (Created/Publish/Activate). Tests use it to pin the
+// timestamp so the output stays reproducible.
+func DNSSECAt(key *ed25519.PrivateKey, domain string, algorithm, flags, bits int, created time.Time) (*DNSSECKeypair, error) {
 	if key == nil {
 		return nil, errors.New("ed25519 key is required")
 	}
-	if algorithm != DNSSECAlgorithmRSASHA256 {
-		return nil, fmt.Errorf("unsupported DNSSEC algorithm %d: only 8 (RSASHA256) is supported", algorithm)
+	switch algorithm {
+	case DNSSECAlgorithmRSASHA256:
+		if err := ValidRSABits(bits); err != nil {
+			return nil, err
+		}
+	case DNSSECAlgorithmED25519:
+		// Ed25519 has no RSA size; the sentinel below is folded into the label.
+	default:
+		return nil, fmt.Errorf("unsupported DNSSEC algorithm %d: use 8 (RSASHA256) or 15 (ED25519)", algorithm)
 	}
 	if flags != DNSSECKSKFlags && flags != DNSSECZSKFlags {
 		return nil, fmt.Errorf("invalid DNSSEC flags %d: use 257 for KSK or 256 for ZSK", flags)
-	}
-	if err := ValidRSABits(bits); err != nil {
-		return nil, err
 	}
 
 	canonicalDomain, err := canonicalDNSName(domain)
@@ -102,17 +146,41 @@ func DNSSEC(key *ed25519.PrivateKey, domain string, algorithm, flags, bits int) 
 		return nil, err
 	}
 
-	label := []byte(fmt.Sprintf("seedify:dnssec:%s:%d:%d:%d:", canonicalDomain, algorithm, flags, bits))
+	labelBits := bits
+	if algorithm == DNSSECAlgorithmED25519 {
+		labelBits = dnssecEd25519LabelBits
+	}
+
+	label := []byte(fmt.Sprintf("seedify:dnssec:%s:%d:%d:%d:", canonicalDomain, algorithm, flags, labelBits))
 	input := make([]byte, len(label)+len(key.Seed()))
 	copy(input, label)
 	copy(input[len(label):], key.Seed())
+	domainHash := sha256.Sum256(input)
 
-	rsaKey, err := deriveRSAKeyFromDomainHash(sha256.Sum256(input), bits)
-	if err != nil {
-		return nil, fmt.Errorf("could not derive RSA key for DNSSEC: %w", err)
+	var (
+		publicKey   []byte
+		privateFile []byte
+		ed25519Seed []byte
+	)
+	switch algorithm {
+	case DNSSECAlgorithmED25519:
+		privKey := ed25519.NewKeyFromSeed(domainHash[:])
+		pubKey, ok := privKey.Public().(ed25519.PublicKey)
+		if !ok {
+			return nil, errors.New("derived DNSSEC ED25519 public key has unexpected type")
+		}
+		publicKey = pubKey
+		ed25519Seed = append([]byte(nil), privKey.Seed()...)
+		privateFile = dnssecEd25519PrivateKeyFile(ed25519Seed, algorithm, created)
+	case DNSSECAlgorithmRSASHA256:
+		rsaKey, err := deriveRSAKeyFromDomainHash(domainHash, bits)
+		if err != nil {
+			return nil, fmt.Errorf("could not derive RSA key for DNSSEC: %w", err)
+		}
+		publicKey = dnssecRSAPublicKeyBytes(&rsaKey.PublicKey)
+		privateFile = dnssecPrivateKeyFile(rsaKey, algorithm, created)
 	}
 
-	publicKey := dnssecRSAPublicKeyBytes(&rsaKey.PublicKey)
 	publicKeyBase64 := base64.StdEncoding.EncodeToString(publicKey)
 	rdata := dnskeyRDATA(flags, algorithm, publicKey)
 	keyTag := dnssecKeyTag(rdata)
@@ -139,7 +207,8 @@ func DNSSEC(key *ed25519.PrivateKey, domain string, algorithm, flags, bits int) 
 		DNSKEYRecord:    keyRecord,
 		DSRecord:        dsRecord,
 		KeyFile:         []byte(keyRecord + "\n"),
-		PrivateKeyFile:  dnssecPrivateKeyFile(rsaKey, algorithm),
+		PrivateKeyFile:  privateFile,
+		Ed25519Seed:     ed25519Seed,
 	}, nil
 }
 
@@ -214,8 +283,12 @@ func dnsNameToWire(domain string) ([]byte, error) {
 	return wire, nil
 }
 
-func dnssecPrivateKeyFile(key *rsa.PrivateKey, algorithm int) []byte {
-	created := pgpEpoch.UTC().Format("20060102150405")
+func dnssecTimestamp(created time.Time) string {
+	return created.UTC().Format("20060102150405")
+}
+
+func dnssecPrivateKeyFile(key *rsa.PrivateKey, algorithm int, created time.Time) []byte {
+	ts := dnssecTimestamp(created)
 	b64 := func(n *big.Int) string { return base64.StdEncoding.EncodeToString(n.Bytes()) }
 	content := fmt.Sprintf(`Private-key-format: v1.3
 Algorithm: %d (RSASHA256)
@@ -240,9 +313,27 @@ Activate: %s
 		b64(key.Precomputed.Dp),
 		b64(key.Precomputed.Dq),
 		b64(key.Precomputed.Qinv),
-		created,
-		created,
-		created,
+		ts,
+		ts,
+		ts,
+	)
+	return []byte(content)
+}
+
+func dnssecEd25519PrivateKeyFile(seed []byte, algorithm int, created time.Time) []byte {
+	ts := dnssecTimestamp(created)
+	content := fmt.Sprintf(`Private-key-format: v1.3
+Algorithm: %d (ED25519)
+PrivateKey: %s
+Created: %s
+Publish: %s
+Activate: %s
+`,
+		algorithm,
+		base64.StdEncoding.EncodeToString(seed),
+		ts,
+		ts,
+		ts,
 	)
 	return []byte(content)
 }

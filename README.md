@@ -181,15 +181,18 @@ It supports `--subaccount` / `-s` and the same completion/manpage commands as `m
 
 ## DNSSEC
 
-`meltify-dnssec` loads an Ed25519 OpenSSH private key and derives a deterministic DNSSEC RSASHA256 (algorithm 8) keypair for a zone. `--domain` is required. `--ksk` (default) uses DNSKEY flags 257; `--zsk` uses 256. `--bits` defaults to 4096 (2048 and 3072 are also accepted). The zone name, algorithm, role, and bit size are mixed into the derivation, so each zone and role gets a distinct key.
+`meltify-dnssec` loads an Ed25519 OpenSSH private key and derives a deterministic DNSSEC keypair for a zone. `--domain` is required. `--algorithm` selects the DNSSEC algorithm and defaults to `ED25519` (15); `RSASHA256` (8) is also supported. `--ksk` (default) uses DNSKEY flags 257; `--zsk` uses 256. `--bits` (default 4096) applies only to RSASHA256 and is ignored for ED25519. The zone name, algorithm, role, and bit size are mixed into the derivation, so each zone, algorithm, and role gets a distinct key.
 
-By default it prints the public DNSKEY and DS records to stdout. Pass `--output <dir>` to write BIND-compatible files instead: `K<zone>.+008+<keytag>.key` (0644), `.private` (0600, `Private-key-format: v1.3`), and `.ds` (0644, SHA-256).
+By default it prints the public DNSKEY and DS records to stdout. Pass `--output <dir>` to write BIND-compatible files instead: `K<zone>.+<alg>+<keytag>.key` (0644), `.private` (0600, `Private-key-format: v1.3`), and `.ds` (0644, SHA-256).
 
 ```sh
 meltify-dnssec ~/.ssh/id_ed25519 --domain example.com
+meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --algorithm RSASHA256 --bits 4096
 meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --ksk --output ./dnssec-keys
 meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --zsk --output ./dnssec-keys
 ```
+
+The `.private` file is stamped with the real current time (`Created`/`Publish`/`Activate`), so the file bytes change between runs even though the key material is deterministic. Not every resolver or registrar accepts algorithm 15; use `--algorithm RSASHA256` for maximum compatibility.
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 

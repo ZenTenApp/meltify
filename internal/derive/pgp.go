@@ -17,17 +17,6 @@ func ValidPGPBits(bits int) error {
 // DefaultPGPBits is the OpenPGP RSA size used by meltify-pgp when --bits is omitted.
 const DefaultPGPBits = DefaultRSABits
 
-// pgpEpoch is the fixed creation timestamp stamped on all OpenPGP keys
-// derived by meltify. Using a well-known past date instead of a live
-// clock or a hash-derived value guarantees two properties simultaneously:
-//  1. Determinism: the same source Ed25519 key always produces the same
-//     OpenPGP fingerprint, regardless of when the command is run.
-//  2. GPG compatibility: GPG rejects keys with creation times in the future,
-//     so using a hash-derived timestamp risks rejection for some source keys.
-//
-// This matches seedify's pgpEpoch (2020-01-01 00:00:00 UTC).
-var pgpEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
-
 // PGPKeys holds the two RSA keys needed to build a standard OpenPGP secret
 // key block: a primary key used for signing and certification ([SC]), and an
 // encryption subkey ([E]). Both are derived deterministically from the same
@@ -41,7 +30,9 @@ type PGPKeys struct {
 	// packet. It carries the [E] (Encrypt) usage flag.
 	EncryptSubkey *rsa.PrivateKey
 
-	// CreationTime is the fixed PGP epoch (2020-01-01 00:00:00 UTC).
+	// CreationTime is the timestamp stamped on the OpenPGP key packets. It is
+	// part of the OpenPGP fingerprint, so a real (non-fixed) timestamp makes the
+	// fingerprint differ between runs; use PGPAt to pin it.
 	CreationTime time.Time
 }
 
@@ -57,6 +48,13 @@ type PGPKeys struct {
 // bits must be 2048, 3072, or 4096. 4096 is strongly recommended.
 // This function is computationally expensive because it involves prime search.
 func PGP(key *ed25519.PrivateKey, bits int) (*PGPKeys, error) {
+	return PGPAt(key, bits, time.Now().UTC())
+}
+
+// PGPAt is PGP with an explicit creation timestamp stamped on the OpenPGP key
+// packets. The timestamp is part of the OpenPGP fingerprint, so callers that
+// need reproducible output (tests, goldens) pass a fixed time here.
+func PGPAt(key *ed25519.PrivateKey, bits int, created time.Time) (*PGPKeys, error) {
 	if key == nil {
 		return nil, errors.New("ed25519 key is required")
 	}
@@ -88,6 +86,6 @@ func PGP(key *ed25519.PrivateKey, bits int) (*PGPKeys, error) {
 	return &PGPKeys{
 		PrimaryKey:    primaryKey,
 		EncryptSubkey: encryptKey,
-		CreationTime:  pgpEpoch,
+		CreationTime:  created,
 	}, nil
 }

@@ -3,7 +3,15 @@ package derive
 import (
 	"crypto/ed25519"
 	"testing"
+	"time"
 )
+
+// goldenCreated is the pinned creation timestamp used by golden tests. Derivation
+// now stamps the real current time, so tests that assert byte-exact output pin a
+// fixed time through the *At variants.
+func goldenCreated() time.Time {
+	return time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+}
 
 func fixedKey() ed25519.PrivateKey {
 	return ed25519.NewKeyFromSeed(FixedSeed00to1f)

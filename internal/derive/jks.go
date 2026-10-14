@@ -150,11 +150,20 @@ func JKS(key *ed25519.PrivateKey, alias string, bits, validityDays int, dn pkix.
 // The keystore salt is drawn from a deterministic stream seeded by the alias and
 // source key, so identical inputs always produce identical bytes.
 func EncodeJKS(pair *JKSKeypair, password []byte) ([]byte, error) {
+	return EncodeJKSWithPasswords(pair, password, password)
+}
+
+// EncodeJKSWithPasswords protects the keystore and private key entry with
+// separate, non-empty passwords. Identical inputs produce identical bytes.
+func EncodeJKSWithPasswords(pair *JKSKeypair, storePassword, keyPassword []byte) ([]byte, error) {
 	if pair == nil {
 		return nil, errors.New("JKS keypair cannot be nil")
 	}
-	if len(password) == 0 {
+	if len(storePassword) == 0 {
 		return nil, errors.New("JKS keystore password cannot be empty")
+	}
+	if len(keyPassword) == 0 {
+		return nil, errors.New("JKS key password cannot be empty")
 	}
 
 	saltRand, err := newDeterministicReader(pair.saltSeed[:])
@@ -176,12 +185,12 @@ func EncodeJKS(pair *JKSKeypair, password []byte) ([]byte, error) {
 		}},
 	}
 
-	if err := ks.SetPrivateKeyEntry(pair.Alias, entry, password); err != nil {
+	if err := ks.SetPrivateKeyEntry(pair.Alias, entry, keyPassword); err != nil {
 		return nil, fmt.Errorf("could not add JKS private key entry: %w", err)
 	}
 
 	var buf bytes.Buffer
-	if err := ks.Store(&buf, password); err != nil {
+	if err := ks.Store(&buf, storePassword); err != nil {
 		return nil, fmt.Errorf("could not encode JKS: %w", err)
 	}
 

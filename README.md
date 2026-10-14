@@ -225,7 +225,13 @@ meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks
 meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --dn "CN=Zenten, OU=Mobile, O=ZenTen"
 ```
 
-The keystore is always password-protected: enter a new passphrase, or pass `--reuse-passphrase` to reuse the SSH key passphrase.
+The keystore is always password-protected: enter a new passphrase, pass `--reuse-passphrase` to reuse the SSH key passphrase, or supply `--store-password` (mutually exclusive with `--reuse-passphrase`). The key entry defaults to the store password; use `--key-password` to set a separate password. Both passwords must be non-empty. These flags do not replace the SSH key passphrase prompt.
+
+```bash
+meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --store-password "$STORE_PASSWORD" --key-password "$KEY_PASSWORD"
+```
+
+Password flags can expose secrets in shell history and process listings; prefer the interactive prompt when possible.
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 

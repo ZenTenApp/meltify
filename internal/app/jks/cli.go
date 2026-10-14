@@ -39,6 +39,8 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 		bits            int
 		validity        int
 		reusePassphrase bool
+		storePassword   string
+		keyPassword     string
 	)
 
 	rootCmd := &cobra.Command{
@@ -54,8 +56,10 @@ pasted into a signing pipeline.
 
 The OpenSSH private key must be password-protected; meltify-jks prompts for that
 passphrase. The keystore is always password-protected: enter a new passphrase, or
-pass --reuse-passphrase to reuse the SSH key passphrase. Use --subaccount to
-derive a deterministic subaccount key first.`,
+pass --reuse-passphrase to reuse the SSH key passphrase. Alternatively, supply
+--store-password. The key entry uses the store password unless --key-password is
+provided. Password flags may be visible in shell history and process listings.
+Use --subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks
   meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --dn "CN=Zenten, OU=Mobile, O=ZenTen"
   meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --bits 2048 --validity 10000
@@ -64,6 +68,12 @@ derive a deterministic subaccount key first.`,
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("store-password") && storePassword == "" {
+				return errors.New("--store-password cannot be empty")
+			}
+			if cmd.Flags().Changed("key-password") && keyPassword == "" {
+				return errors.New("--key-password cannot be empty")
+			}
 			if len(args) == 0 && stdin == os.Stdin {
 				if fi, statErr := os.Stdin.Stat(); statErr == nil && (fi.Mode()&os.ModeNamedPipe) == 0 {
 					return cmd.Help()
@@ -74,7 +84,7 @@ derive a deterministic subaccount key first.`,
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, alias, output, dn, bits, validity, reusePassphrase, stdin)
+			return runWithOptions(keyPath, subaccount, alias, output, dn, bits, validity, reusePassphrase, storePassword, keyPassword, stdin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
@@ -84,6 +94,9 @@ derive a deterministic subaccount key first.`,
 	rootCmd.Flags().IntVar(&bits, "bits", derive.DefaultRSABits, "RSA key size in bits (2048, 3072, or 4096)")
 	rootCmd.Flags().IntVar(&validity, "validity", derive.DefaultJKSValidityDays, "Self-signed certificate validity in days")
 	rootCmd.Flags().BoolVar(&reusePassphrase, "reuse-passphrase", false, "Reuse the source SSH key passphrase to protect the keystore; requires a password-protected source key")
+	rootCmd.Flags().StringVar(&storePassword, "store-password", "", "Keystore password (default: prompt or --reuse-passphrase; visible in process arguments)")
+	rootCmd.Flags().StringVar(&keyPassword, "key-password", "", "Private key entry password (default: store password; visible in process arguments)")
+	rootCmd.MarkFlagsMutuallyExclusive("store-password", "reuse-passphrase")
 	_ = rootCmd.MarkFlagRequired("alias")
 	_ = rootCmd.MarkFlagRequired("output")
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
@@ -91,7 +104,7 @@ derive a deterministic subaccount key first.`,
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount, alias, output, dn string, bits, validity int, reusePassphrase bool, stdin io.Reader) error {
+func runWithOptions(keyPath, subaccount, alias, output, dn string, bits, validity int, reusePassphrase bool, storePassword, keyPassword string, stdin io.Reader) error {
 	if err := derive.ValidRSABits(bits); err != nil {
 		return fmt.Errorf("invalid --bits: %w", err)
 	}
@@ -119,7 +132,7 @@ func runWithOptions(keyPath, subaccount, alias, output, dn string, bits, validit
 		return fmt.Errorf("could not activate subaccount: %w", err)
 	}
 
-	passphrase, err := readOutputPassphrase(reusePassphrase, material.SourcePass)
+	storePassword, keyPassword, err = resolvePasswords(storePassword, keyPassword, reusePassphrase, material.SourcePass)
 	if err != nil {
 		return fmt.Errorf("could not read JKS passphrase: %w", err)
 	}
@@ -131,7 +144,7 @@ func runWithOptions(keyPath, subaccount, alias, output, dn string, bits, validit
 		return fmt.Errorf("could not derive JKS keypair: %w", err)
 	}
 
-	jksBytes, err := derive.EncodeJKS(pair, passphrase)
+	jksBytes, err := derive.EncodeJKSWithPasswords(pair, []byte(storePassword), []byte(keyPassword))
 	if err != nil {
 		return fmt.Errorf("could not encode JKS keystore: %w", err)
 	}
@@ -143,8 +156,22 @@ func runWithOptions(keyPath, subaccount, alias, output, dn string, bits, validit
 	fmt.Fprintf(os.Stderr, "JKS keystore written to: %s\n", output)
 	fmt.Fprintf(os.Stderr, "Verify with: keytool -list -keystore %s -alias %s\n", output, alias)
 
-	printSigningSecrets(output, alias, string(passphrase), string(passphrase), jksBytes)
+	printSigningSecrets(output, alias, storePassword, keyPassword, jksBytes)
 	return nil
+}
+
+func resolvePasswords(storePassword, keyPassword string, reusePassphrase bool, sourcePass []byte) (string, string, error) {
+	if storePassword == "" {
+		passphrase, err := readOutputPassphrase(reusePassphrase, sourcePass)
+		if err != nil {
+			return "", "", err
+		}
+		storePassword = string(passphrase)
+	}
+	if keyPassword == "" {
+		keyPassword = storePassword
+	}
+	return storePassword, keyPassword, nil
 }
 
 // readOutputPassphrase is replaced in tests.
@@ -216,7 +243,7 @@ func printSigningSecrets(keystorePath, alias, storePassword, keyPassword string,
 	out.NamedSecret(
 		"ANDROID_KEY_PASSWORD",
 		keyPassword,
-		"password for the key entry inside the keystore — set at creation; for meltify-jks this is the same as the store password",
+		"password for the key entry inside the keystore — defaults to the store password unless set via --key-password",
 		true,
 	)
 }

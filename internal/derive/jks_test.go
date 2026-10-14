@@ -150,6 +150,42 @@ func TestEncodeJKSRejectsBadInput(t *testing.T) {
 	}
 }
 
+func TestEncodeJKSSeparatePasswords(t *testing.T) {
+	t.Parallel()
+	pair := goldenJKSKeypair(t)
+	storePassword, keyPassword := []byte("store-secret"), []byte("key-secret")
+	for _, passwords := range [][2][]byte{{nil, keyPassword}, {storePassword, nil}} {
+		if _, err := EncodeJKSWithPasswords(pair, passwords[0], passwords[1]); err == nil {
+			t.Fatal("empty password succeeded")
+		}
+	}
+	encoded, err := EncodeJKSWithPasswords(pair, storePassword, keyPassword)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	second, err := EncodeJKSWithPasswords(pair, storePassword, keyPassword)
+	if err != nil || !bytes.Equal(encoded, second) {
+		t.Fatal("separate-password encoding is not deterministic")
+	}
+	ks := keystore.New(keystore.WithCaseExactAliases())
+	if err := ks.Load(bytes.NewReader(encoded), keyPassword); err == nil {
+		t.Fatal("key password opened keystore")
+	}
+	if err := ks.Load(bytes.NewReader(encoded), storePassword); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if _, err := ks.GetPrivateKeyEntry(pair.Alias, storePassword); err == nil {
+		t.Fatal("store password decrypted key entry")
+	}
+	entry, err := ks.GetPrivateKeyEntry(pair.Alias, keyPassword)
+	if err != nil {
+		t.Fatalf("get entry: %v", err)
+	}
+	if !bytes.Equal(entry.PrivateKey, pair.PrivateKeyPKCS8) {
+		t.Fatal("private key mismatch")
+	}
+}
+
 func TestEncodeJKSRoundTrip(t *testing.T) {
 	t.Parallel()
 	pair := goldenJKSKeypair(t)

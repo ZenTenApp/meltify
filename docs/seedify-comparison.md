@@ -21,7 +21,7 @@ Seedify is one CLI with many flags. Meltify is a family of sibling binaries (`cm
 | `--to-dnssec` | `meltify-dnssec` (`--domain` / `--ksk` / `--zsk`) |
 | `--to-i2p` | `meltify-i2p` (default prints b32 + secrets; `--output` writes `keys.dat`) |
 | `--to-wireguard` | `meltify-wireguard` (wg base64 static keypair on stdout) |
-| `--to-jks` | `meltify-jks` (`--alias` / `--output` / `--dn` / `--validity`; writes a `.jks`) |
+| `--to-jks` | `meltify-jks` (`--alias` / `--output` / `--dn` / `--validity` / `--store-password` / `--key-password`; writes a `.jks`) |
 
 `meltify-info` prints native SegWit BTC, BCH, ETH + EVM aliases, SOL, TRX, LTC, DOGE, ATOM, XRP, XLM, SUI, TON V4R2, silent payments, Monero and Beldex legacy primaries, plus BChat.
 

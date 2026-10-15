@@ -22,4 +22,8 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.8.0
+          # config verify fetches the JSON schema from golangci-lint.run, which
+          # can time out on CI runners; golangci-lint run still fails loudly on a
+          # malformed config.
+          verify: false
           args: --config .golangci-soft.yml

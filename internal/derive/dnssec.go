@@ -103,7 +103,7 @@ func ParseDNSSECAlgorithm(value string) (int, error) {
 }
 
 // DNSSEC deterministically derives a BIND-compatible DNSSEC keypair from an
-// Ed25519 private key, stamped with the current UTC time.
+// Ed25519 private key, stamped with the fixed derivation epoch.
 //
 // This matches seedify.DeriveDNSSECKeypair for algorithm 8. Algorithm 15
 // (ED25519) is a meltify extension: it derives an Ed25519 keypair from
@@ -117,12 +117,12 @@ func ParseDNSSECAlgorithm(value string) (int, error) {
 // bits must be 2048, 3072, or 4096. The output includes BIND-style .key/.private
 // file contents plus DNSKEY and SHA-256 DS records.
 func DNSSEC(key *ed25519.PrivateKey, domain string, algorithm, flags, bits int) (*DNSSECKeypair, error) {
-	return DNSSECAt(key, domain, algorithm, flags, bits, time.Now().UTC())
+	return DNSSECAt(key, domain, algorithm, flags, bits, derivationEpoch)
 }
 
 // DNSSECAt is DNSSEC with an explicit creation timestamp, which is stamped on
-// the BIND .private file (Created/Publish/Activate). Tests use it to pin the
-// timestamp so the output stays reproducible.
+// the BIND .private file (Created/Publish/Activate). The timestamp does not
+// affect the DNSKEY, DS, or key tag, so the derived key is stable either way.
 func DNSSECAt(key *ed25519.PrivateKey, domain string, algorithm, flags, bits int, created time.Time) (*DNSSECKeypair, error) {
 	if key == nil {
 		return nil, errors.New("ed25519 key is required")

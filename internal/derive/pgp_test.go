@@ -4,18 +4,17 @@ import (
 	"crypto/ed25519"
 	"strings"
 	"testing"
-	"time"
 )
 
-func TestPGPStampsCurrentTime(t *testing.T) {
+func TestPGPUsesFixedEpoch(t *testing.T) {
 	t.Parallel()
 	key := ed25519.NewKeyFromSeed(FixedSeed00to1f)
 	keys, err := PGP(&key, 2048)
 	if err != nil {
 		t.Fatalf("PGP: %v", err)
 	}
-	if diff := time.Since(keys.CreationTime); diff < 0 || diff > time.Minute {
-		t.Fatalf("CreationTime = %s (diff %s), want ~now", keys.CreationTime, diff)
+	if !keys.CreationTime.Equal(derivationEpoch) {
+		t.Fatalf("CreationTime = %s, want %s", keys.CreationTime, derivationEpoch)
 	}
 }
 

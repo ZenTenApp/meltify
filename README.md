@@ -192,7 +192,7 @@ meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --ksk --output ./dnssec-ke
 meltify-dnssec ~/.ssh/id_ed25519 --domain example.com --zsk --output ./dnssec-keys
 ```
 
-The `.private` file is stamped with the real current time (`Created`/`Publish`/`Activate`), so the file bytes change between runs even though the key material is deterministic. Not every resolver or registrar accepts algorithm 15; use `--algorithm RSASHA256` for maximum compatibility.
+Output is deterministic: the same key and parameters always produce the same DNSKEY, DS, and BIND files, stamped with the fixed derivation epoch (2020-01-01 UTC). Not every resolver or registrar accepts algorithm 15; use `--algorithm RSASHA256` for maximum compatibility.
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 

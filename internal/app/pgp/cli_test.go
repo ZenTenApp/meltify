@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
@@ -45,7 +44,7 @@ func TestExecuteRejectsInvalidBits(t *testing.T) {
 func TestEncodeArmoredPrivateKeyRoundTrip(t *testing.T) {
 	t.Parallel()
 	key := ed25519.NewKeyFromSeed(derive.FixedSeed00to1f)
-	keys, err := derive.PGPAt(&key, 2048, time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC))
+	keys, err := derive.PGP(&key, 2048)
 	if err != nil {
 		t.Fatalf("PGP: %v", err)
 	}

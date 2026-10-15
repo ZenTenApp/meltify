@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestDNSSECStampsCurrentTime(t *testing.T) {
+func TestDNSSECUsesFixedEpoch(t *testing.T) {
 	t.Parallel()
 	key := ed25519.NewKeyFromSeed(FixedSeed00to1f)
 	pair, err := DNSSEC(&key, "example.com", DNSSECAlgorithmED25519, DNSSECKSKFlags, DefaultRSABits)
@@ -31,8 +31,8 @@ func TestDNSSECStampsCurrentTime(t *testing.T) {
 	if created.IsZero() {
 		t.Fatal("no Created line in private file")
 	}
-	if diff := time.Since(created); diff < 0 || diff > time.Minute {
-		t.Fatalf("Created = %s (diff %s), want ~now", created, diff)
+	if !created.Equal(derivationEpoch) {
+		t.Fatalf("Created = %s, want %s", created, derivationEpoch)
 	}
 }
 

@@ -7,23 +7,19 @@ import (
 	"crypto/x509/pkix"
 	"encoding/hex"
 	"testing"
-	"time"
 
 	keystore "github.com/pavlo-v-chernykh/keystore-go/v4"
 )
 
-func TestJKSStampsCurrentTime(t *testing.T) {
+func TestJKSUsesFixedEpoch(t *testing.T) {
 	t.Parallel()
 	key := ed25519.NewKeyFromSeed(FixedSeed00to1f)
 	pair, err := JKS(&key, "zenten", 2048, DefaultJKSValidityDays, pkix.Name{})
 	if err != nil {
 		t.Fatalf("JKS: %v", err)
 	}
-	if diff := time.Since(pair.CreationTime); diff < 0 || diff > time.Minute {
-		t.Fatalf("CreationTime = %s (diff %s), want ~now", pair.CreationTime, diff)
-	}
-	if !pair.NotBefore.Equal(pair.CreationTime) {
-		t.Fatalf("NotBefore = %s, CreationTime = %s", pair.NotBefore, pair.CreationTime)
+	if !pair.CreationTime.Equal(derivationEpoch) || !pair.NotBefore.Equal(derivationEpoch) {
+		t.Fatalf("CreationTime/NotBefore = %s/%s, want %s", pair.CreationTime, pair.NotBefore, derivationEpoch)
 	}
 }
 

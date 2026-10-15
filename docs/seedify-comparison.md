@@ -34,7 +34,6 @@ Features meltify has that seedify v1.36.0 does not:
 - BChat chat ID
 - `--subaccount` / `-s` on every sibling CLI
 - `meltify-dnssec --algorithm ED25519` (algorithm 15), which is the **default**; seedify v1.36.0 implements only RSASHA256 (algorithm 8). The algorithm-15 goldens are meltify-only.
-- Derived artifacts are stamped with the real current time (OpenPGP `CreationTime`/fingerprint, DNSSEC `.private` `Created`/`Publish`/`Activate`, JKS certificate `NotBefore` and entry `CreationTime`), so their bytes are no longer identical between runs. The underlying key material is still deterministic; pass `*At(..., fixedTime)` in Go to pin the timestamp.
 
 ## Missing dedicated modes
 

@@ -50,9 +50,8 @@ type JKSKeypair struct {
 	// SerialNumber is the certificate serial number.
 	SerialNumber *big.Int
 
-	// CreationTime is the JKS entry creation timestamp. It is part of the
-	// encoded keystore, so a real (non-fixed) timestamp makes the output differ
-	// between runs; use JKSAt to pin it.
+	// CreationTime is the fixed derivation epoch stamped on the JKS entry. It is
+	// part of the encoded keystore and of the certificate.
 	CreationTime time.Time
 
 	saltSeed [32]byte
@@ -73,12 +72,12 @@ type JKSKeypair struct {
 // Security note: the derived RSA key and certificate are cryptographically
 // linked to the source SSH key. Compromising either key compromises both.
 func JKS(key *ed25519.PrivateKey, alias string, bits, validityDays int, dn pkix.Name) (*JKSKeypair, error) {
-	return JKSAt(key, alias, bits, validityDays, dn, time.Now().UTC())
+	return JKSAt(key, alias, bits, validityDays, dn, derivationEpoch)
 }
 
 // JKSAt is JKS with an explicit creation timestamp. It fixes the certificate
-// NotBefore and the JKS entry CreationTime, so callers that need reproducible
-// output (tests, goldens) pass a fixed time here.
+// NotBefore and the JKS entry CreationTime, which are part of the certificate
+// and keystore identity.
 func JKSAt(key *ed25519.PrivateKey, alias string, bits, validityDays int, dn pkix.Name, created time.Time) (*JKSKeypair, error) {
 	if key == nil {
 		return nil, errors.New("ed25519 key is required")

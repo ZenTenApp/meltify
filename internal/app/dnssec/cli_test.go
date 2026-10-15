@@ -39,11 +39,37 @@ func TestExecuteRejectsKSKAndZSK(t *testing.T) {
 func TestExecuteRejectsInvalidBits(t *testing.T) {
 	t.Parallel()
 	info := cliutil.VersionInfo{Version: "test", Commit: "none", Date: "unknown"}
-	err := Execute([]string{"--domain", "example.com", "--bits", "1024", "/no/such/key"}, strings.NewReader(""), info)
+	err := Execute([]string{"--domain", "example.com", "--algorithm", "RSASHA256", "--bits", "1024", "/no/such/key"}, strings.NewReader(""), info)
 	if err == nil {
 		t.Fatal("invalid --bits succeeded")
 	}
 	if !strings.Contains(err.Error(), "invalid RSA bit size") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestExecuteRejectsInvalidAlgorithm(t *testing.T) {
+	t.Parallel()
+	info := cliutil.VersionInfo{Version: "test", Commit: "none", Date: "unknown"}
+	err := Execute([]string{"--domain", "example.com", "--algorithm", "bogus", "/no/such/key"}, strings.NewReader(""), info)
+	if err == nil {
+		t.Fatal("invalid --algorithm succeeded")
+	}
+	if !strings.Contains(err.Error(), "invalid --algorithm") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestExecuteEd25519IgnoresBits(t *testing.T) {
+	t.Parallel()
+	info := cliutil.VersionInfo{Version: "test", Commit: "none", Date: "unknown"}
+	// ED25519 is the default and has no RSA size, so an invalid --bits must not
+	// be rejected before the key is loaded.
+	err := Execute([]string{"--domain", "example.com", "--bits", "1024", "/no/such/key"}, strings.NewReader(""), info)
+	if err == nil {
+		t.Fatal("missing key succeeded")
+	}
+	if !strings.Contains(err.Error(), "could not load SSH key") {
 		t.Fatalf("error = %v", err)
 	}
 }

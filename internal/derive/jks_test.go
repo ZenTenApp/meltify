@@ -11,10 +11,22 @@ import (
 	keystore "github.com/pavlo-v-chernykh/keystore-go/v4"
 )
 
+func TestJKSUsesFixedEpoch(t *testing.T) {
+	t.Parallel()
+	key := ed25519.NewKeyFromSeed(FixedSeed00to1f)
+	pair, err := JKS(&key, "zenten", 2048, DefaultJKSValidityDays, pkix.Name{})
+	if err != nil {
+		t.Fatalf("JKS: %v", err)
+	}
+	if !pair.CreationTime.Equal(derivationEpoch) || !pair.NotBefore.Equal(derivationEpoch) {
+		t.Fatalf("CreationTime/NotBefore = %s/%s, want %s", pair.CreationTime, pair.NotBefore, derivationEpoch)
+	}
+}
+
 func goldenJKSKeypair(t *testing.T) *JKSKeypair {
 	t.Helper()
 	key := ed25519.NewKeyFromSeed(FixedSeed00to1f)
-	pair, err := JKS(&key, GoldenJKSAlias, 2048, DefaultJKSValidityDays, pkix.Name{CommonName: "Zenten"})
+	pair, err := JKSAt(&key, GoldenJKSAlias, 2048, DefaultJKSValidityDays, pkix.Name{CommonName: "Zenten"}, goldenCreated())
 	if err != nil {
 		t.Fatalf("JKS: %v", err)
 	}

@@ -50,7 +50,8 @@ type JKSKeypair struct {
 	// SerialNumber is the certificate serial number.
 	SerialNumber *big.Int
 
-	// CreationTime is the fixed JKS entry creation timestamp.
+	// CreationTime is the fixed derivation epoch stamped on the JKS entry. It is
+	// part of the encoded keystore and of the certificate.
 	CreationTime time.Time
 
 	saltSeed [32]byte
@@ -71,6 +72,13 @@ type JKSKeypair struct {
 // Security note: the derived RSA key and certificate are cryptographically
 // linked to the source SSH key. Compromising either key compromises both.
 func JKS(key *ed25519.PrivateKey, alias string, bits, validityDays int, dn pkix.Name) (*JKSKeypair, error) {
+	return JKSAt(key, alias, bits, validityDays, dn, derivationEpoch)
+}
+
+// JKSAt is JKS with an explicit creation timestamp. It fixes the certificate
+// NotBefore and the JKS entry CreationTime, which are part of the certificate
+// and keystore identity.
+func JKSAt(key *ed25519.PrivateKey, alias string, bits, validityDays int, dn pkix.Name, created time.Time) (*JKSKeypair, error) {
 	if key == nil {
 		return nil, errors.New("ed25519 key is required")
 	}
@@ -102,7 +110,7 @@ func JKS(key *ed25519.PrivateKey, alias string, bits, validityDays int, dn pkix.
 		return nil, fmt.Errorf("could not marshal JKS private key to PKCS#8: %w", err)
 	}
 
-	notBefore := pgpEpoch
+	notBefore := created
 	notAfter := notBefore.AddDate(0, 0, validityDays)
 	serial := serialNumberFromDomainHash(domainHash)
 
@@ -141,7 +149,7 @@ func JKS(key *ed25519.PrivateKey, alias string, bits, validityDays int, dn pkix.
 		NotBefore:         notBefore,
 		NotAfter:          notAfter,
 		SerialNumber:      serial,
-		CreationTime:      pgpEpoch,
+		CreationTime:      created,
 		saltSeed:          sha256.Sum256(saltInput),
 	}, nil
 }

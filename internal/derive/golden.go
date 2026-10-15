@@ -90,6 +90,24 @@ Publish: 20200101000000
 Activate: 20200101000000
 `
 
+	// DNSSEC ED25519 (algorithm 15) KSK for FixedSeed00to1f, zone example.com,
+	// sentinel label bits 256, pinned creation time 2020-01-01. Algorithm 15 is a
+	// meltify extension (seedify v1.36.0 implements only algorithm 8), so these
+	// values were computed independently from
+	// SHA-256("seedify:dnssec:example.com.:15:257:256:" || FixedSeed00to1f).
+	GoldenDNSSECEd25519FileBase = "Kexample.com.+015+30108"
+	GoldenDNSSECEd25519KeyTag   = 30108
+	GoldenDNSSECEd25519DNSKEY   = "example.com. IN DNSKEY 257 3 15 VUdl9xA7mzVD4zHimcwgBY3BJ4TiuipjEnzpyA44DmU="
+	GoldenDNSSECEd25519DS       = "example.com. IN DS 30108 15 2 DFE72F4509CE84E74826C72EB06C543AAE80FFC79B7761C643F440421552552C"
+	GoldenDNSSECEd25519Seed     = "3e36e39f3974b1b4c7b656375777d81d77fca40af94e1896c8df1a036a0091a1"
+	GoldenDNSSECEd25519Private  = `Private-key-format: v1.3
+Algorithm: 15 (ED25519)
+PrivateKey: Pjbjnzl0sbTHtlY3V3fYHXf8pAr5ThiWyN8aA2oAkaE=
+Created: 20200101000000
+Publish: 20200101000000
+Activate: 20200101000000
+`
+
 	// OpenPGP RSA-2048 values from seedify v1.36.0 DerivePGPKeypair for FixedSeed00to1f.
 	GoldenPGPPrimaryN2048    = "a3f332dc889f9a02963960fd1a0def97db52cadd5e30d9295de740a8f9562dbad55cb8e1408f2878c5982af57e5dc9f8c7008739c236b7f9e76bbb3a8c21bffde3685761b0e9fb853020578da2cc8dc398d74b2aa3e509b46e4c9481a9749b7de8ec19a530488b2c00759b035fdac41ffad21cb81361716a2258d518b8dae3e1813dabc3574b8824c236928046406786e4626b03777e8df36ef134eb9cd35ae3db2c7d6a20a27c5a84f7ce2570413faf7fc81baabb0a88d304217e22a1e2f4aaaebf3c8520a934cb31ba02d1fe02e3e3892eb0314c18ec493d0c99760522b65ae1850cda98ed0d354e0796d04027fea07cb59046382f439d66866e1df1a874a7"
 	GoldenPGPEncryptN2048    = "ec103f4e3b85a1fcfa08e64f4312c59a28e409f937ee8de164b066b4f695edee0d00f58425df2bde5d476a3988e45802ad41ef09a8e8d6c088b9f1113c45de532a5382d361d618f2dff5ba7134e7e66e53141d2144994cf321d9124291d3fd1b51602a801cabbce4b46b538c5f404aa5a307a3f8993ea787b4bdeada681b714981cebf3543161ec30d9f82c4ffa3802ff3095091bc8e06ee0827101dafacc9f81052921be7e439c297fa69dd7ecd7695560dd957b2a105467e2cde32d9b3865394fd6ff78b5dbe864e56582192a4dc6c0151c109696b578da6a888abc9bc04208159e70af3c182273081cc84931411bfbeadfa50599cf38413a70fbfa9ad1367"

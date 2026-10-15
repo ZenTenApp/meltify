@@ -4,8 +4,19 @@ import (
 	"crypto/ed25519"
 	"strings"
 	"testing"
-	"time"
 )
+
+func TestPGPUsesFixedEpoch(t *testing.T) {
+	t.Parallel()
+	key := ed25519.NewKeyFromSeed(FixedSeed00to1f)
+	keys, err := PGP(&key, 2048)
+	if err != nil {
+		t.Fatalf("PGP: %v", err)
+	}
+	if !keys.CreationTime.Equal(derivationEpoch) {
+		t.Fatalf("CreationTime = %s, want %s", keys.CreationTime, derivationEpoch)
+	}
+}
 
 func TestValidPGPBits(t *testing.T) {
 	t.Parallel()
@@ -32,11 +43,11 @@ func TestPGPRejectsNilKey(t *testing.T) {
 func TestPGPMatchesGolden2048(t *testing.T) {
 	t.Parallel()
 	key := ed25519.NewKeyFromSeed(FixedSeed00to1f)
-	keys, err := PGP(&key, 2048)
+	keys, err := PGPAt(&key, 2048, goldenCreated())
 	if err != nil {
 		t.Fatalf("PGP: %v", err)
 	}
-	if !keys.CreationTime.Equal(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) {
+	if !keys.CreationTime.Equal(goldenCreated()) {
 		t.Fatalf("CreationTime = %s", keys.CreationTime)
 	}
 	if keys.PrimaryKey.N.BitLen() != 2048 {

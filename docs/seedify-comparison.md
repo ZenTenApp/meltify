@@ -18,7 +18,7 @@ Seedify is one CLI with many flags. Meltify is a family of sibling binaries (`cm
 | `--to-onion` | `meltify-onion` |
 | `--to-rsa` + `--openssl-compatible` | `meltify-rsa` |
 | `--to-dkim` | `meltify-dkim` (`--selector` / `--domain`) |
-| `--to-dnssec` | `meltify-dnssec` (`--domain` / `--ksk` / `--zsk`) |
+| `--to-dnssec` | `meltify-dnssec` (`--domain` / `--algorithm` / `--ksk` / `--zsk`) |
 | `--to-i2p` | `meltify-i2p` (default prints b32 + secrets; `--output` writes `keys.dat`) |
 | `--to-wireguard` | `meltify-wireguard` (wg base64 static keypair on stdout) |
 | `--to-jks` | `meltify-jks` (`--alias` / `--output` / `--dn` / `--validity` / `--store-password` / `--key-password`; writes a `.jks`) |
@@ -33,6 +33,7 @@ Features meltify has that seedify v1.36.0 does not:
 - TON Wallet V4R2 UQ at `m/44'/607'/0'`
 - BChat chat ID
 - `--subaccount` / `-s` on every sibling CLI
+- `meltify-dnssec --algorithm ED25519` (algorithm 15), which is the **default**; seedify v1.36.0 implements only RSASHA256 (algorithm 8). The algorithm-15 goldens are meltify-only.
 
 ## Missing dedicated modes
 

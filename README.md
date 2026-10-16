@@ -138,8 +138,11 @@ All forms come from the same master seed, so the SSH key, raw seed, and MELT phr
 
 `meltify-pgp` loads an Ed25519 OpenSSH private key and prints a deterministic ASCII-armored OpenPGP secret key (`gpg --import`). The primary RSA key is `[SC]` and the subkey is `[E]`. Creation time is 2020-01-01 UTC so the fingerprint is stable. `--name` and `--email` are required for the UID. `--bits` defaults to 4096 (2048 and 3072 are also accepted). The OpenPGP secret is always passphrase-protected; `--reuse-passphrase` reuses the SSH key passphrase.
 
+By default the secret key is printed to stdout. Pass `--output <path>` to write the secret key to a file (0600) instead. The matching ASCII-armored PGP PUBLIC KEY BLOCK is always printed to stdout, so it can be shared or imported on its own.
+
 ```sh
 meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com
+meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com --output secret.asc
 ```
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.

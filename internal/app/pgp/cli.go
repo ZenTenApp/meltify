@@ -19,7 +19,13 @@ import (
 	"golang.org/x/term"
 )
 
-const binaryName = "meltify-pgp"
+const (
+	binaryName = "meltify-pgp"
+
+	// secretKeyFileMode is the permission used when writing the OpenPGP secret
+	// key to --output. It is owner read/write only.
+	secretKeyFileMode = 0o600
+)
 
 // Execute runs the meltify-pgp CLI.
 func Execute(args []string, stdin io.Reader, info cliutil.VersionInfo) error {
@@ -33,6 +39,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 		subaccount      string
 		name            string
 		email           string
+		output          string
 		bits            int
 		reusePassphrase bool
 	)
@@ -46,11 +53,16 @@ The output is an ASCII-armored PGP PRIVATE KEY BLOCK importable with gpg --impor
 a primary rsa key with [SC] usage and an encryption subkey with [E] usage.
 The creation timestamp is 2020-01-01 UTC so the OpenPGP fingerprint is stable.
 
+By default the secret key is printed to stdout. Pass --output <path> to write it
+to a file (0600) instead. The matching ASCII-armored PGP PUBLIC KEY BLOCK is
+always printed to stdout so it can be shared or imported on its own.
+
 The OpenSSH private key must be password-protected; meltify-pgp prompts for that
 passphrase. The OpenPGP secret is always passphrase-protected: enter a new
 passphrase, or pass --reuse-passphrase to reuse the SSH key passphrase. Use
 --subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com
+  meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com --output secret.asc
   cat ~/.ssh/id_ed25519 | meltify-pgp --name "Alice" --email alice@example.com
   meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com --subaccount subaccount-label
   meltify-pgp ~/.ssh/id_ed25519 --name "Alice" --email alice@example.com --reuse-passphrase`,
@@ -68,12 +80,13 @@ passphrase, or pass --reuse-passphrase to reuse the SSH key passphrase. Use
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, name, email, bits, reusePassphrase, stdin)
+			return runWithOptions(keyPath, subaccount, name, email, output, bits, reusePassphrase, stdin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
 	rootCmd.Flags().StringVar(&name, "name", "", "Full name for the OpenPGP UID")
 	rootCmd.Flags().StringVar(&email, "email", "", "Email address for the OpenPGP UID")
+	rootCmd.Flags().StringVar(&output, "output", "", "Write the OpenPGP secret key to this path (0600) instead of stdout")
 	rootCmd.Flags().IntVar(&bits, "bits", derive.DefaultPGPBits, "RSA key size in bits (2048, 3072, or 4096)")
 	rootCmd.Flags().BoolVar(&reusePassphrase, "reuse-passphrase", false, "Reuse the source SSH key passphrase to protect the OpenPGP secret; requires a password-protected source key")
 	_ = rootCmd.MarkFlagRequired("name")
@@ -83,7 +96,7 @@ passphrase, or pass --reuse-passphrase to reuse the SSH key passphrase. Use
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount, name, email string, bits int, reusePassphrase bool, stdin io.Reader) error {
+func runWithOptions(keyPath, subaccount, name, email, output string, bits int, reusePassphrase bool, stdin io.Reader) error {
 	if err := derive.ValidPGPBits(bits); err != nil {
 		return fmt.Errorf("invalid --bits: %w", err)
 	}
@@ -108,14 +121,43 @@ func runWithOptions(keyPath, subaccount, name, email string, bits int, reusePass
 		return fmt.Errorf("could not derive PGP keypair: %w", err)
 	}
 
-	ascBytes, err := encodeArmoredPrivateKey(keys, name, email, passphrase)
+	secretBytes, err := encodeArmoredPrivateKey(keys, name, email, passphrase)
 	if err != nil {
-		return fmt.Errorf("could not encode PGP key: %w", err)
+		return fmt.Errorf("could not encode PGP secret key: %w", err)
 	}
-	_, err = os.Stdout.Write(ascBytes)
+	publicBytes, err := encodeArmoredPublicKey(keys, name, email)
 	if err != nil {
-		return fmt.Errorf("could not write PGP key: %w", err)
+		return fmt.Errorf("could not encode PGP public key: %w", err)
 	}
+
+	// Write the secret key to --output when set, otherwise to stdout.
+	if err := writeSecretKey(output, secretBytes); err != nil {
+		return err
+	}
+
+	// Always print the public key so it can be shared on its own.
+	if _, err := os.Stdout.Write(publicBytes); err != nil {
+		return fmt.Errorf("could not write PGP public key: %w", err)
+	}
+	return nil
+}
+
+// writeSecretKey writes the armored OpenPGP secret key to path (0600) when set
+// and to stdout otherwise. The matching public key is printed separately by
+// runWithOptions.
+func writeSecretKey(path string, secretBytes []byte) error {
+	if path == "" {
+		if _, err := os.Stdout.Write(secretBytes); err != nil {
+			return fmt.Errorf("could not write PGP secret key: %w", err)
+		}
+		return nil
+	}
+
+	if err := os.WriteFile(path, secretBytes, secretKeyFileMode); err != nil {
+		return fmt.Errorf("could not write PGP secret key to %s: %w", path, err)
+	}
+	fmt.Fprintf(os.Stderr, "PGP secret key written to: %s\n", path)
+	fmt.Fprintf(os.Stderr, "Import the secret key with: gpg --import %s\n", path)
 	return nil
 }
 
@@ -162,11 +204,43 @@ func readPassword() ([]byte, error) {
 }
 
 func encodeArmoredPrivateKey(keys *derive.PGPKeys, name, email string, passphrase []byte) ([]byte, error) {
-	if keys == nil || keys.PrimaryKey == nil || keys.EncryptSubkey == nil {
-		return nil, errors.New("PGP key material is incomplete")
-	}
 	if len(passphrase) == 0 {
 		return nil, errors.New("passphrase for PGP key cannot be empty")
+	}
+	entity, err := buildEntity(keys, name, email)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encrypt all private key material with the user's passphrase before
+	// serializing. SerializePrivateWithoutSigning is used afterwards to avoid
+	// attempting to sign with the now-encrypted keys.
+	if err := entity.EncryptPrivateKeys(passphrase, nil); err != nil {
+		return nil, fmt.Errorf("could not encrypt PGP private keys: %w", err)
+	}
+	return armorEntity(openpgp.PrivateKeyType, func(w io.Writer) error {
+		return entity.SerializePrivateWithoutSigning(w, nil)
+	})
+}
+
+func encodeArmoredPublicKey(keys *derive.PGPKeys, name, email string) ([]byte, error) {
+	entity, err := buildEntity(keys, name, email)
+	if err != nil {
+		return nil, err
+	}
+	// Entity.Serialize emits only public key material; the secret packets are
+	// never written.
+	return armorEntity(openpgp.PublicKeyType, entity.Serialize)
+}
+
+// buildEntity constructs the OpenPGP entity from derived RSA key material: a
+// primary [SC] key, a positive-certification self-signature binding the UID,
+// and an [E] encryption subkey. The private packets are returned in the clear;
+// callers either encrypt them for secret-key output or serialize only the
+// public half.
+func buildEntity(keys *derive.PGPKeys, name, email string) (*openpgp.Entity, error) {
+	if keys == nil || keys.PrimaryKey == nil || keys.EncryptSubkey == nil {
+		return nil, errors.New("PGP key material is incomplete")
 	}
 
 	primaryPrivPkt := packet.NewRSAPrivateKey(keys.CreationTime, keys.PrimaryKey)
@@ -229,16 +303,19 @@ func encodeArmoredPrivateKey(keys *derive.PGPKeys, name, email string, passphras
 		Sig:        subkeySig,
 	})
 
-	if err := entity.EncryptPrivateKeys(passphrase, nil); err != nil {
-		return nil, fmt.Errorf("could not encrypt PGP private keys: %w", err)
-	}
+	return entity, nil
+}
 
+// armorEntity ASCII-armors the entity using the given armor type. serialize is
+// called with the armor writer; the differing Entity serialization methods are
+// wrapped by the caller.
+func armorEntity(armorType string, serialize func(io.Writer) error) ([]byte, error) {
 	var buf bytes.Buffer
-	armorWriter, err := armor.Encode(&buf, openpgp.PrivateKeyType, nil)
+	armorWriter, err := armor.Encode(&buf, armorType, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not create PGP armor writer: %w", err)
 	}
-	if err := entity.SerializePrivateWithoutSigning(armorWriter, nil); err != nil {
+	if err := serialize(armorWriter); err != nil {
 		return nil, fmt.Errorf("could not serialize PGP key: %w", err)
 	}
 	if err := armorWriter.Close(); err != nil {

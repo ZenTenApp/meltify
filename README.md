@@ -30,9 +30,10 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-dnssec@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-i2p@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-wireguard@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-jks@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-multisig@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, `meltify-i2p`, `meltify-wireguard`, and `meltify-jks` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, `meltify-i2p`, `meltify-wireguard`, `meltify-jks`, and `meltify-multisig` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -259,6 +260,7 @@ meltify-dnssec completion bash
 meltify-i2p completion bash
 meltify-wireguard completion bash
 meltify-jks completion bash
+meltify-multisig completion bash
 ```
 
 Generate a roff man page:
@@ -278,7 +280,46 @@ meltify-dnssec man
 meltify-i2p man
 meltify-wireguard man
 meltify-jks man
+meltify-multisig man
 ```
+
+## Multisig (BIP48 keystore policy)
+
+`meltify-multisig` loads an Ed25519 OpenSSH private key and derives its BIP48 Bitcoin multisig account, printing the keystore policy block wallets such as Sparrow accept:
+
+```
+===== BITCOIN =====
+Policy Type: Multi Signature HD
+Cosigners: 1
+M of N: 1 /1
+Script Type: Native Segwit (P2WSH)
+Descriptor: wsh(sortedmulti(1,[3e1f3ae0/48'/0'/0'/2']xpub6FJWDKvyCX6JxLGwUxroV6L4vLxvyY5xff8348jD6VeEDtfQBjWagTFmnwFD9XcduRgMxniPaHXofxwa2M98iKJP5sVsWFcxpHPwjGbdMGB/0/*))
+Type: Software wallet
+Label: npub102xk3gvg50prsrgm76ksy8nh6enrsgwpqgr3hku4g204z364lnns533vq7
+Master fingerprint: 3e1f3ae0
+Derivation: m/48'/0'/0'/2'
+xpub: xpub6FJWDKvyCX6JxLGwUxroV6L4vLxvyY5xff8348jD6VeEDtfQBjWagTFmnwFD9XcduRgMxniPaHXofxwa2M98iKJP5sVsWFcxpHPwjGbdMGB
+===== BITCOIN =====
+```
+
+```sh
+meltify-multisig ~/.ssh/id_ed25519
+meltify-multisig ~/.ssh/id_ed25519 --script-type nested --label cold
+```
+
+`--script-type` (`-t`) selects the BIP48 script type: `native` (2', P2WSH — the default), `nested` (1', P2SH-P2WSH), or `legacy` (0', P2SH). `--label` sets the block's `Label` line and defaults to this key's Nostr npub. `--slip132` prints the account key as `Zpub`/`Ypub` instead of `xpub`; the descriptor always keeps the standard xpub.
+
+Only this key's account xpub can be derived here. For a policy with other cosigners, repeat `--cosigner-xpub` once per additional key and set `--required` (`-m`, default 1) to the m of the m-of-n policy:
+
+```sh
+meltify-multisig ~/.ssh/id_ed25519 -m 2 \
+  --cosigner-xpub xpub6... \
+  --cosigner-xpub xpub6...
+```
+
+Cosigner keys are rendered in the order supplied; `sortedmulti` sorts derived public keys at derivation time, so descriptor order does not affect the resulting addresses.
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
 ## Notes
 

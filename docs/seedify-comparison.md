@@ -22,6 +22,7 @@ Seedify is one CLI with many flags. Meltify is a family of sibling binaries (`cm
 | `--to-i2p` | `meltify-i2p` (default prints b32 + secrets; `--output` writes `keys.dat`) |
 | `--to-wireguard` | `meltify-wireguard` (wg base64 static keypair on stdout) |
 | `--to-jks` | `meltify-jks` (`--alias` / `--output` / `--dn` / `--validity` / `--store-password` / `--key-password`; writes a `.jks`) |
+| BIP48 1-of-1 multisig extended keys + address | `meltify-multisig` (`--script-type` / `--slip132` / `--label`) |
 
 `meltify-info` prints native SegWit BTC, BCH, ETH + EVM aliases, SOL, TRX, LTC, DOGE, ATOM, XRP, XLM, SUI, TON V4R2, silent payments, Monero and Beldex legacy primaries, plus BChat.
 
@@ -34,6 +35,7 @@ Features meltify has that seedify v1.36.0 does not:
 - BChat chat ID
 - `--subaccount` / `-s` on every sibling CLI
 - `meltify-dnssec --algorithm ED25519` (algorithm 15), which is the **default**; seedify v1.36.0 implements only RSASHA256 (algorithm 8). The algorithm-15 goldens are meltify-only.
+- `meltify-multisig` BIP380 output descriptors (`wsh(sortedmulti(…))`), the Sparrow-style `===== BITCOIN =====` keystore policy block, and `--cosigner-xpub` / `--required` m-of-n assembly. Seedify v1.36.0 derives the BIP48 keys but emits no descriptor and has no keystore block, so those goldens are meltify-only.
 
 ## Missing dedicated modes
 
@@ -66,7 +68,6 @@ Meltify-info only prints native SegWit `bc1q`. Seedify `--btc` also emits:
 - legacy P2PKH (`1…`) and P2SH-SegWit (`3…`)
 - WIF private keys
 - master xpub/xprv and account xpub / ypub / zpub (and private)
-- BIP48 1-of-1 multisig (legacy / nested / native) + Ypub / Zpub
 - BIP47 PayNym (payment code + notification address)
 - master fingerprint
 

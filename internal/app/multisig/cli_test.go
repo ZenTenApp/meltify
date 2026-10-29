@@ -143,14 +143,43 @@ func TestPolicyDescriptorRejectsNilKeys(t *testing.T) {
 	}
 }
 
-func TestKeystoreLabelDefaultsToNpub(t *testing.T) {
+func TestKeystoreLabelDefaultsToNpubFingerprint(t *testing.T) {
 	t.Parallel()
 	got, err := keystoreLabel("", derive.GoldenMnemonic24)
 	if err != nil {
 		t.Fatalf("keystoreLabel: %v", err)
 	}
-	if got != derive.GoldenNpub {
-		t.Fatalf("label = %q, want %q", got, derive.GoldenNpub)
+	if want := "npub7a8d"; got != want {
+		t.Fatalf("label = %q, want %q", got, want)
+	}
+	if !strings.HasPrefix(derive.GoldenPubHex, strings.TrimPrefix(got, "npub")) {
+		t.Fatalf("label %q is not the npub fingerprint prefix", got)
+	}
+	if len(got) > 16 {
+		t.Fatalf("label %q exceeds Sparrow's 16-character limit", got)
+	}
+}
+
+func TestNpubFingerprintLabel(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		pubKeyHex string
+		want      string
+	}{
+		{name: "golden pubkey", pubKeyHex: derive.GoldenPubHex, want: "npub7a8d"},
+		{name: "exactly four", pubKeyHex: "7a8d", want: "npub7a8d"},
+		{name: "shorter than four", pubKeyHex: "ab", want: "npubab"},
+		{name: "empty", pubKeyHex: "", want: "npub"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := npubFingerprintLabel(test.pubKeyHex); got != test.want {
+				t.Fatalf("npubFingerprintLabel(%q) = %q, want %q", test.pubKeyHex, got, test.want)
+			}
+		})
 	}
 }
 
@@ -198,6 +227,74 @@ func TestExecuteScriptTypeFlagIsParsed(t *testing.T) {
 		t.Fatal("bogus script type succeeded")
 	}
 	if !strings.Contains(err.Error(), "unknown script type") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestPrintAddressBlocks(t *testing.T) {
+
+	set := &derive.BitcoinMultisigAddressSet{
+		Receive: []string{"bc1qreceive0", "bc1qreceive1"},
+		Change:  []string{"bc1qchange0"},
+	}
+
+	out := captureStdout(t, func() { printAddressBlocks(set) })
+
+	want := "===== RECEIVE ADDRESSES =====\n" +
+		"0: bc1qreceive0\n" +
+		"1: bc1qreceive1\n" +
+		"===== RECEIVE ADDRESSES =====\n" +
+		"\n" +
+		"===== CHANGE ADDRESSES =====\n" +
+		"0: bc1qchange0\n" +
+		"===== CHANGE ADDRESSES =====\n"
+
+	if out != want {
+		t.Fatalf("stdout = %q, want %q", out, want)
+	}
+}
+
+func TestPrintAddressBlocksIgnoresNilSet(t *testing.T) {
+	if out := captureStdout(t, func() { printAddressBlocks(nil) }); out != "" {
+		t.Fatalf("stdout = %q, want empty", out)
+	}
+}
+
+func TestMultisigAddressesUsesCosigners(t *testing.T) {
+	t.Parallel()
+
+	opts := &options{required: 1, scriptType: "native"}
+	single, err := multisigAddresses(derive.GoldenMnemonic24, derive.BitcoinMultisigNativeSegwitP2WSH, opts)
+	if err != nil {
+		t.Fatalf("multisigAddresses: %v", err)
+	}
+	if len(single.Receive) != addressCount || len(single.Change) != addressCount {
+		t.Fatalf("counts = %d/%d, want %d/%d", len(single.Receive), len(single.Change), addressCount, addressCount)
+	}
+
+	keys, err := derive.BitcoinMultisigAccount(derive.GoldenMnemonic24, "", derive.BitcoinMultisigNestedSegwitP2SHP2WSH)
+	if err != nil {
+		t.Fatalf("BitcoinMultisigAccount: %v", err)
+	}
+	opts.required = 2
+	opts.cosigners = []string{keys.StandardPublicKey}
+	twoOfTwo, err := multisigAddresses(derive.GoldenMnemonic24, derive.BitcoinMultisigNativeSegwitP2WSH, opts)
+	if err != nil {
+		t.Fatalf("multisigAddresses with cosigner: %v", err)
+	}
+	if twoOfTwo.Receive[0] == single.Receive[0] {
+		t.Fatalf("2-of-2 receive[0] equals 1-of-1 address %q", twoOfTwo.Receive[0])
+	}
+}
+
+func TestExecuteRejectsInvalidCosignerBeforeKeyLoad(t *testing.T) {
+	t.Parallel()
+	info := cliutil.VersionInfo{Version: "test", Commit: "none", Date: "unknown"}
+	err := Execute([]string{"/no/such/key", "--cosigner-xpub", "not-an-xpub"}, strings.NewReader(""), info)
+	if err == nil {
+		t.Fatal("invalid cosigner xpub succeeded")
+	}
+	if !strings.Contains(err.Error(), "could not parse --cosigner-xpub 1") {
 		t.Fatalf("error = %v", err)
 	}
 }

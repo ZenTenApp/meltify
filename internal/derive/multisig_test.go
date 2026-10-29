@@ -1,6 +1,7 @@
 package derive
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -323,5 +324,209 @@ func TestMultisigRedeemScript(t *testing.T) {
 	}
 	if _, err := multisigRedeemScript([][]byte{make([]byte, 32)}, 1); err == nil {
 		t.Fatal("uncompressed key succeeded")
+	}
+}
+
+func TestBitcoinMultisigAddressesMatchSingleKeyGolden(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		scriptType BitcoinMultisigScriptType
+		address    string
+	}{
+		{name: "legacy P2SH", scriptType: BitcoinMultisigLegacyP2SH, address: GoldenBitcoinMultisigLegacyAddr},
+		{name: "nested P2SH-P2WSH", scriptType: BitcoinMultisigNestedSegwitP2SHP2WSH, address: GoldenBitcoinMultisigNestedAddr},
+		{name: "native P2WSH", scriptType: BitcoinMultisigNativeSegwitP2WSH, address: GoldenBitcoinMultisigNativeAddr},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			keys, err := BitcoinMultisigAccount(GoldenMnemonic24, "", test.scriptType)
+			if err != nil {
+				t.Fatalf("BitcoinMultisigAccount: %v", err)
+			}
+
+			set, err := BitcoinMultisigAddresses(test.scriptType, 1, []string{keys.StandardPublicKey}, 10)
+			if err != nil {
+				t.Fatalf("BitcoinMultisigAddresses: %v", err)
+			}
+
+			if len(set.Receive) != 10 || len(set.Change) != 10 {
+				t.Fatalf("address counts = %d receive, %d change, want 10 each", len(set.Receive), len(set.Change))
+			}
+			// 1-of-1 /0/0 must stay identical to the pre-existing derivation.
+			assertEq(t, "receive[0]", set.Receive[0], test.address)
+			if set.Change[0] == set.Receive[0] {
+				t.Fatalf("change[0] = receive[0] = %q", set.Change[0])
+			}
+			if set.Receive[0] == set.Receive[1] {
+				t.Fatalf("receive[1] repeats receive[0] = %q", set.Receive[0])
+			}
+			if set.Change[0] == set.Change[1] {
+				t.Fatalf("change[1] repeats change[0] = %q", set.Change[0])
+			}
+		})
+	}
+}
+
+func TestBitcoinMultisigAddressesIgnoreCosignerOrder(t *testing.T) {
+	t.Parallel()
+
+	xpubs := make([]string, 0, 3)
+	for _, scriptType := range []BitcoinMultisigScriptType{
+		BitcoinMultisigLegacyP2SH,
+		BitcoinMultisigNestedSegwitP2SHP2WSH,
+		BitcoinMultisigNativeSegwitP2WSH,
+	} {
+		keys, err := BitcoinMultisigAccount(GoldenMnemonic24, "", scriptType)
+		if err != nil {
+			t.Fatalf("BitcoinMultisigAccount: %v", err)
+		}
+		xpubs = append(xpubs, keys.StandardPublicKey)
+	}
+
+	forward, err := BitcoinMultisigAddresses(BitcoinMultisigNativeSegwitP2WSH, 2, xpubs, 3)
+	if err != nil {
+		t.Fatalf("forward order: %v", err)
+	}
+	reversed := []string{xpubs[2], xpubs[1], xpubs[0]}
+	backward, err := BitcoinMultisigAddresses(BitcoinMultisigNativeSegwitP2WSH, 2, reversed, 3)
+	if err != nil {
+		t.Fatalf("reversed order: %v", err)
+	}
+
+	for i := range forward.Receive {
+		assertEq(t, fmt.Sprintf("receive[%d]", i), backward.Receive[i], forward.Receive[i])
+	}
+	for i := range forward.Change {
+		assertEq(t, fmt.Sprintf("change[%d]", i), backward.Change[i], forward.Change[i])
+	}
+	// A 2-of-3 policy must not collapse to the 1-of-1 address.
+	if forward.Receive[0] == GoldenBitcoinMultisigNativeAddr {
+		t.Fatalf("2-of-3 receive[0] equals the 1-of-1 address %q", forward.Receive[0])
+	}
+}
+
+func TestBitcoinMultisigAddressesRejectInvalidPolicy(t *testing.T) {
+	t.Parallel()
+
+	keys, err := BitcoinMultisigAccount(GoldenMnemonic24, "", BitcoinMultisigNativeSegwitP2WSH)
+	if err != nil {
+		t.Fatalf("BitcoinMultisigAccount: %v", err)
+	}
+	xpub := keys.StandardPublicKey
+
+	if _, err := BitcoinMultisigAddresses(BitcoinMultisigNativeSegwitP2WSH, 2, []string{xpub}, 10); err == nil {
+		t.Fatal("2-of-1 policy succeeded")
+	}
+	if _, err := BitcoinMultisigAddresses(BitcoinMultisigNativeSegwitP2WSH, 1, []string{xpub}, 0); err == nil {
+		t.Fatal("zero address count succeeded")
+	}
+	if _, err := BitcoinMultisigAddresses(BitcoinMultisigNativeSegwitP2WSH, 1, []string{"not-an-xpub"}, 10); err == nil {
+		t.Fatal("invalid cosigner xpub succeeded")
+	}
+	if _, err := BitcoinMultisigAddresses(BitcoinMultisigNativeSegwitP2WSH, 1, []string{keys.StandardPrivateKey}, 10); err == nil {
+		t.Fatal("private cosigner key succeeded")
+	}
+}
+
+func TestNormalizeBitcoinExtendedKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		key  string
+		want string
+	}{
+		{name: "Ypub", key: GoldenBitcoinMultisigNestedYpub, want: GoldenBitcoinMultisigNestedXpub},
+		{name: "Zpub", key: GoldenBitcoinMultisigNativeZpub, want: GoldenBitcoinMultisigNativeXpub},
+		{name: "xpub passthrough", key: GoldenBitcoinMultisigNativeXpub, want: GoldenBitcoinMultisigNativeXpub},
+		{name: "xprv passthrough", key: GoldenBitcoinMultisigNativeXprv, want: GoldenBitcoinMultisigNativeXprv},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := NormalizeBitcoinExtendedKey("  " + test.key + "  ")
+			if err != nil {
+				t.Fatalf("NormalizeBitcoinExtendedKey: %v", err)
+			}
+			assertEq(t, "normalized key", got, test.want)
+		})
+	}
+
+	if _, err := NormalizeBitcoinExtendedKey(""); err == nil {
+		t.Fatal("empty key succeeded")
+	}
+	if _, err := NormalizeBitcoinExtendedKey("not-a-key"); err == nil {
+		t.Fatal("garbage key succeeded")
+	}
+	// Flip a payload byte so the base58 checksum no longer matches.
+	tampered := GoldenBitcoinMultisigNativeZpub[:len(GoldenBitcoinMultisigNativeZpub)-1] + "2"
+	if _, err := NormalizeBitcoinExtendedKey(tampered); err == nil {
+		t.Fatal("tampered key succeeded")
+	}
+}
+
+func TestBitcoinMultisigAddressesGolden(t *testing.T) {
+	t.Parallel()
+
+	// receive[0] is the seedify golden address; the remaining values pin the
+	// chain/index derivation on both the external (0) and internal (1) chains.
+	tests := []struct {
+		name       string
+		scriptType BitcoinMultisigScriptType
+		receive1   string
+		receive9   string
+		change0    string
+		change9    string
+	}{
+		{
+			name:       "legacy P2SH",
+			scriptType: BitcoinMultisigLegacyP2SH,
+			receive1:   "3A2J8kcr1eXCEiZMarYkiHM3PbfS7U2QoE",
+			receive9:   "33WZ4rtUsJMyLajHe3P14mHAfwX5YMDZWf",
+			change0:    "3KsNd1UySJBWmSe7GiUp3hTiNzcsbuyJu5",
+			change9:    "3AikiRVSgXiC8RoVKhSzvsxxAgUEmWsEX9",
+		},
+		{
+			name:       "nested P2SH-P2WSH",
+			scriptType: BitcoinMultisigNestedSegwitP2SHP2WSH,
+			receive1:   "3M1cxaExyNotBxLiEMvmcGbik23t8GLAQt",
+			receive9:   "3LuCPUQzK73ftNb2g87fxC8tT7KBqn741x",
+			change0:    "35FqQA9THY8KfP3MfqxyNz8xDeg7Q6Hi8x",
+			change9:    "3FxuAvm3aCgVoR5e87ziyeAAqdqxPSnHVR",
+		},
+		{
+			name:       "native P2WSH",
+			scriptType: BitcoinMultisigNativeSegwitP2WSH,
+			receive1:   "bc1qslcvf06a6g5qs99ph4dm7rqvlxkekhmudzhs5j78tkjgdgg93e9qsrx9u0",
+			receive9:   "bc1q6mxnemxdhlp2ykcex6wqeukcxw34wp40l980fe08nyv7zm7gh9fspw05r0",
+			change0:    "bc1qd807vgpapuzxg60wh88x6f2gp53cfunjqzskts5sjhdg0jg252gs2x0ytd",
+			change9:    "bc1q8w8g0yapxruqxq28nj6wceu9ggyyhchvl4xa8a65aaal3jgwd8zq7vcd9j",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			keys, err := BitcoinMultisigAccount(GoldenMnemonic24, "", test.scriptType)
+			if err != nil {
+				t.Fatalf("BitcoinMultisigAccount: %v", err)
+			}
+			set, err := BitcoinMultisigAddresses(test.scriptType, 1, []string{keys.StandardPublicKey}, 10)
+			if err != nil {
+				t.Fatalf("BitcoinMultisigAddresses: %v", err)
+			}
+
+			assertEq(t, "receive[1]", set.Receive[1], test.receive1)
+			assertEq(t, "receive[9]", set.Receive[9], test.receive9)
+			assertEq(t, "change[0]", set.Change[0], test.change0)
+			assertEq(t, "change[9]", set.Change[9], test.change9)
+		})
 	}
 }

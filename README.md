@@ -295,7 +295,7 @@ M of N: 1 /1
 Script Type: Native Segwit (P2WSH)
 Descriptor: wsh(sortedmulti(1,[3e1f3ae0/48'/0'/0'/2']xpub6FJWDKvyCX6JxLGwUxroV6L4vLxvyY5xff8348jD6VeEDtfQBjWagTFmnwFD9XcduRgMxniPaHXofxwa2M98iKJP5sVsWFcxpHPwjGbdMGB/0/*))
 Type: Software wallet
-Label: npub102xk3gvg50prsrgm76ksy8nh6enrsgwpqgr3hku4g204z364lnns533vq7
+Label: npub7a8d
 Master fingerprint: 3e1f3ae0
 Derivation: m/48'/0'/0'/2'
 xpub: xpub6FJWDKvyCX6JxLGwUxroV6L4vLxvyY5xff8348jD6VeEDtfQBjWagTFmnwFD9XcduRgMxniPaHXofxwa2M98iKJP5sVsWFcxpHPwjGbdMGB
@@ -307,7 +307,7 @@ meltify-multisig ~/.ssh/id_ed25519
 meltify-multisig ~/.ssh/id_ed25519 --script-type nested --label cold
 ```
 
-`--script-type` (`-t`) selects the BIP48 script type: `native` (2', P2WSH — the default), `nested` (1', P2SH-P2WSH), or `legacy` (0', P2SH). `--label` sets the block's `Label` line and defaults to this key's Nostr npub. `--slip132` prints the account key as `Zpub`/`Ypub` instead of `xpub`; the descriptor always keeps the standard xpub.
+`--script-type` (`-t`) selects the BIP48 script type: `native` (2', P2WSH — the default), `nested` (1', P2SH-P2WSH), or `legacy` (0', P2SH). `--label` sets the block's `Label` line and defaults to `npub` plus the first 4 hex characters of this key's Nostr public key, because wallets such as Sparrow cap keystore labels at 16 characters. `--slip132` prints the account key as `Zpub`/`Ypub` instead of `xpub`; the descriptor always keeps the standard xpub.
 
 Only this key's account xpub can be derived here. For a policy with other cosigners, repeat `--cosigner-xpub` once per additional key and set `--required` (`-m`, default 1) to the m of the m-of-n policy:
 
@@ -317,7 +317,25 @@ meltify-multisig ~/.ssh/id_ed25519 -m 2 \
   --cosigner-xpub xpub6...
 ```
 
-Cosigner keys are rendered in the order supplied; `sortedmulti` sorts derived public keys at derivation time, so descriptor order does not affect the resulting addresses.
+Cosigner keys are rendered in the order supplied; `sortedmulti` sorts derived public keys at derivation time, so descriptor order does not affect the resulting addresses. Each `--cosigner-xpub` may be an `xpub` or a SLIP-0132 `Ypub`/`Zpub`, which is normalized back to the standard key.
+
+After the policy block, the first 10 receive (external chain, `/0/i`) and 10 change (internal chain, `/1/i`) addresses are printed for the complete policy:
+
+```
+===== RECEIVE ADDRESSES =====
+0: bc1q...
+...
+9: bc1q...
+===== RECEIVE ADDRESSES =====
+
+===== CHANGE ADDRESSES =====
+0: bc1q...
+...
+9: bc1q...
+===== CHANGE ADDRESSES =====
+```
+
+Each address's cosigner public keys are sorted lexicographically before the redeem script is built, matching the `sortedmulti(...)` descriptor, so the addresses do not depend on `--cosigner-xpub` order and match what a wallet derives from the descriptor. Because the addresses cover the whole m-of-n policy, every cosigner xpub and `--required` must be supplied; a missing cosigner would silently produce different (single-key-style) addresses, which is why the address block only reflects the exact policy above it. Only the first 10 of each chain are printed (a gap limit of 10).
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 

@@ -20,6 +20,15 @@ const (
 	defaultScript   = "native"
 	policyTypeLabel = "Multi Signature HD"
 	walletTypeLabel = "Software wallet"
+	// npubLabelPrefix marks a default keystore label as this key's Nostr
+	// identity. npubFingerprintLen is how many leading hex characters of the
+	// Nostr public key it carries: Sparrow caps a keystore label at 16
+	// characters, and a full npub is 63.
+	npubLabelPrefix    = "npub"
+	npubFingerprintLen = 4
+	// addressCount is how many receive and change addresses are printed per
+	// policy (BIP44-style gap limit of 10 on each chain).
+	addressCount = 10
 )
 
 // options holds the parsed CLI state for one run.
@@ -73,9 +82,15 @@ reports the combined M of N and emits a descriptor with every key. Descriptor
 keys keep the supplied order, because sortedmulti sorts derived public keys at
 derivation time rather than in the descriptor text.
 
-The default Label is this key's Nostr npub. The OpenSSH private key must be
+The default Label is npub followed by the first four hex characters of this
+key's Nostr public key (npub7a8d, for example), because wallets such as
+Sparrow cap keystore labels at 16 characters. The OpenSSH private key must be
 password-protected; meltify-multisig prompts for that passphrase. Use
---subaccount to derive a deterministic subaccount key first.`,
+--subaccount to derive a deterministic subaccount key first.
+
+After the policy block the first 10 receive (external chain) and 10 change
+(internal chain) addresses are printed for the complete policy, so every
+--cosigner-xpub and --required must already be supplied.`,
 		Example: `  meltify-multisig ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-multisig
   meltify-multisig ~/.ssh/id_ed25519 --script-type nested --label cold
@@ -99,7 +114,7 @@ password-protected; meltify-multisig prompts for that passphrase. Use
 	}
 
 	rootCmd.Flags().StringVarP(&opts.subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
-	rootCmd.Flags().StringVar(&opts.label, "label", "", "Keystore label shown in the block (default: this key's Nostr npub)")
+	rootCmd.Flags().StringVar(&opts.label, "label", "", "Keystore label shown in the block (default: npub and the first 4 hex characters of this key's Nostr public key)")
 	rootCmd.Flags().StringVarP(&opts.scriptType, "script-type", "t", defaultScript, "BIP48 script type: native (P2WSH), nested (P2SH-P2WSH), or legacy (P2SH)")
 	rootCmd.Flags().BoolVar(&opts.slip132, "slip132", false, "Print the SLIP-0132 account key (ypub/zpub) instead of the standard xpub")
 	rootCmd.Flags().IntVarP(&opts.required, "required", "m", 1, "Required signatures (the m of the m-of-n policy)")
@@ -113,6 +128,14 @@ func runWithOptions(opts *options, stdin io.Reader) error {
 	scriptType, err := derive.ParseBitcoinMultisigScriptType(opts.scriptType)
 	if err != nil {
 		return fmt.Errorf("could not parse --script-type: %w", err)
+	}
+
+	for i, xpub := range opts.cosigners {
+		normalized, err := derive.NormalizeBitcoinExtendedKey(xpub)
+		if err != nil {
+			return fmt.Errorf("could not parse --cosigner-xpub %d: %w", i+1, err)
+		}
+		opts.cosigners[i] = normalized
 	}
 
 	material, err := sshkey.LoadEd25519Key(opts.keyPath, stdin)
@@ -132,10 +155,20 @@ func runWithOptions(opts *options, stdin io.Reader) error {
 	if err != nil {
 		return err
 	}
-	return printPolicyBlock(mnemonic, scriptType, label, opts)
+
+	addresses, err := multisigAddresses(mnemonic, scriptType, opts)
+	if err != nil {
+		return err
+	}
+	if err := printPolicyBlock(mnemonic, scriptType, label, opts); err != nil {
+		return err
+	}
+	printAddressBlocks(addresses)
+	return nil
 }
 
-// keystoreLabel resolves the block label, defaulting to the key's Nostr npub.
+// keystoreLabel resolves the block label, defaulting to the key's Nostr
+// identity fingerprint so the block fits Sparrow's 16-character label limit.
 func keystoreLabel(flagValue, mnemonic string) (string, error) {
 	if trimmed := strings.TrimSpace(flagValue); trimmed != "" {
 		return trimmed, nil
@@ -145,7 +178,57 @@ func keystoreLabel(flagValue, mnemonic string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("could not derive Nostr npub for the default label: %w", err)
 	}
-	return nostrKeys.Npub, nil
+	return npubFingerprintLabel(nostrKeys.PubKeyHex), nil
+}
+
+// npubFingerprintLabel builds the default label from a Nostr public key hex
+// string: the npubLabelPrefix plus its leading npubFingerprintLen characters.
+// The bech32 npub tail is checksum, not key material, so the hex form is used.
+func npubFingerprintLabel(pubKeyHex string) string {
+	fingerprint := pubKeyHex
+	if len(fingerprint) > npubFingerprintLen {
+		fingerprint = fingerprint[:npubFingerprintLen]
+	}
+	return npubLabelPrefix + fingerprint
+}
+
+// multisigAddresses derives the receive and change addresses for the complete
+// policy: this key plus every --cosigner-xpub.
+func multisigAddresses(mnemonic string, scriptType derive.BitcoinMultisigScriptType, opts *options) (*derive.BitcoinMultisigAddressSet, error) {
+	accountKeys, err := derive.BitcoinMultisigAccount(mnemonic, "", scriptType)
+	if err != nil {
+		return nil, fmt.Errorf("could not derive BIP48 account keys: %w", err)
+	}
+
+	xpubs := make([]string, 0, 1+len(opts.cosigners))
+	xpubs = append(xpubs, accountKeys.StandardPublicKey)
+	xpubs = append(xpubs, opts.cosigners...)
+
+	addresses, err := derive.BitcoinMultisigAddresses(scriptType, opts.required, xpubs, addressCount)
+	if err != nil {
+		return nil, fmt.Errorf("could not derive multisig addresses: %w", err)
+	}
+	return addresses, nil
+}
+
+// printAddressBlocks renders the receive and change address blocks.
+func printAddressBlocks(addresses *derive.BitcoinMultisigAddressSet) {
+	if addresses == nil {
+		return
+	}
+	out := termout.New()
+	out.RawBorderBlock("===== RECEIVE ADDRESSES =====", addressLines(addresses.Receive))
+	out.Blank()
+	out.RawBorderBlock("===== CHANGE ADDRESSES =====", addressLines(addresses.Change))
+}
+
+// addressLines numbers one chain's addresses starting at 0.
+func addressLines(addresses []string) []termout.BlockLine {
+	lines := make([]termout.BlockLine, 0, len(addresses))
+	for index, address := range addresses {
+		lines = append(lines, termout.BlockLine{Text: fmt.Sprintf("%d: %s", index, address)})
+	}
+	return lines
 }
 
 // printPolicyBlock renders the ===== BITCOIN ===== policy block.

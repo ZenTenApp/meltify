@@ -35,7 +35,7 @@ Features meltify has that seedify v1.36.0 does not:
 - BChat chat ID
 - `--subaccount` / `-s` on every sibling CLI
 - `meltify-dnssec --algorithm ED25519` (algorithm 15), which is the **default**; seedify v1.36.0 implements only RSASHA256 (algorithm 8). The algorithm-15 goldens are meltify-only.
-- `meltify-multisig` BIP380 output descriptors (`wsh(sortedmulti(…))`), the Sparrow-style `===== BITCOIN =====` keystore policy block, and `--cosigner-xpub` / `--required` m-of-n assembly. Seedify v1.36.0 derives the BIP48 keys but emits no descriptor and has no keystore block, so those goldens are meltify-only.
+- `meltify-multisig` BIP380 output descriptors (`wsh(sortedmulti(…))`), the Sparrow-style `===== BITCOIN =====` keystore policy block, and `--cosigner-xpub` / `--required` m-of-n assembly. Seedify v1.36.0 derives the BIP48 keys but emits no descriptor and has no keystore block, so those goldens are meltify-only. Meltify additionally prints the first 10 receive (`/0/i`) and 10 change (`/1/i`) addresses for the assembled policy, with cosigner keys sorted per BIP67 to match `sortedmulti`; seedify emits no addresses for a multisig policy.
 
 ## Missing dedicated modes
 

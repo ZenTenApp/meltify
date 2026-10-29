@@ -317,7 +317,25 @@ meltify-multisig ~/.ssh/id_ed25519 -m 2 \
   --cosigner-xpub xpub6...
 ```
 
-Cosigner keys are rendered in the order supplied; `sortedmulti` sorts derived public keys at derivation time, so descriptor order does not affect the resulting addresses.
+Cosigner keys are rendered in the order supplied; `sortedmulti` sorts derived public keys at derivation time, so descriptor order does not affect the resulting addresses. Each `--cosigner-xpub` may be an `xpub` or a SLIP-0132 `Ypub`/`Zpub`, which is normalized back to the standard key.
+
+After the policy block, the first 10 receive (external chain, `/0/i`) and 10 change (internal chain, `/1/i`) addresses are printed for the complete policy:
+
+```
+===== RECEIVE ADDRESSES =====
+0: bc1q...
+...
+9: bc1q...
+===== RECEIVE ADDRESSES =====
+
+===== CHANGE ADDRESSES =====
+0: bc1q...
+...
+9: bc1q...
+===== CHANGE ADDRESSES =====
+```
+
+Each address's cosigner public keys are sorted lexicographically before the redeem script is built, matching the `sortedmulti(...)` descriptor, so the addresses do not depend on `--cosigner-xpub` order and match what a wallet derives from the descriptor. Because the addresses cover the whole m-of-n policy, every cosigner xpub and `--required` must be supplied; a missing cosigner would silently produce different (single-key-style) addresses, which is why the address block only reflects the exact policy above it. Only the first 10 of each chain are printed (a gap limit of 10).
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 

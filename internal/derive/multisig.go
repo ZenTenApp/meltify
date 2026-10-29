@@ -1,10 +1,13 @@
 package derive
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/btcsuite/btcd/btcutil"
@@ -27,9 +30,18 @@ const (
 	multisigBIP48Purpose    uint32 = 48
 	multisigBitcoinCoinType uint32 = 0
 	multisigDefaultAccount  uint32 = 0
+	multisigExternalChain   uint32 = 0
+	multisigChangeChain     uint32 = 1
 	extendedKeyPayloadSize         = 78
 	extendedKeyChecksumSize        = 4
 	masterFingerprintSize          = 4
+	// BIP32 and SLIP-0132 extended-key version bytes.
+	xpubVersion uint32 = 0x0488B21E
+	xprvVersion uint32 = 0x0488ADE4
+	ypubVersion uint32 = 0x049D7CB2
+	yprvVersion uint32 = 0x049D7878
+	zpubVersion uint32 = 0x04B24746
+	zprvVersion uint32 = 0x04B2430C
 	// MaxMultisigCosigners is the largest key set a legacy P2SH multisig script
 	// can hold (consensus OP_CHECKMULTISIG limit for script-hash wallets).
 	MaxMultisigCosigners   = 15
@@ -220,7 +232,96 @@ func BitcoinMultisigAddress(mnemonic, bip39Passphrase string, scriptType Bitcoin
 	if err != nil {
 		return "", err
 	}
+	return multisigScriptAddress(script, scriptType)
+}
 
+// BitcoinMultisigAddressSet holds the first addressCount receive (external
+// chain 0) and change (internal chain 1) addresses of a BIP48 multisig policy.
+type BitcoinMultisigAddressSet struct {
+	Receive []string
+	Change  []string
+}
+
+// BitcoinMultisigAddresses derives the first count receive and change addresses
+// of an m-of-n BIP48 multisig policy from every cosigner's account xpub,
+// including this wallet's own. accountXpubs may be supplied in any order: each
+// address's public keys are sorted lexicographically, matching the sortedmulti
+// descriptor, before the redeem script is built.
+func BitcoinMultisigAddresses(scriptType BitcoinMultisigScriptType, required int, accountXpubs []string, count int) (*BitcoinMultisigAddressSet, error) {
+	if err := validateMultisigPolicy(required, len(accountXpubs)); err != nil {
+		return nil, err
+	}
+	if count < 1 {
+		return nil, fmt.Errorf("address count must be at least 1, got %d", count)
+	}
+
+	accountKeys := make([]*hdkeychain.ExtendedKey, 0, len(accountXpubs))
+	for i, xpub := range accountXpubs {
+		normalized, err := NormalizeBitcoinExtendedKey(xpub)
+		if err != nil {
+			return nil, fmt.Errorf("cosigner %d: %w", i+1, err)
+		}
+		key, err := hdkeychain.NewKeyFromString(normalized)
+		if err != nil {
+			return nil, fmt.Errorf("cosigner %d: invalid account extended public key: %w", i+1, err)
+		}
+		if key.IsPrivate() {
+			return nil, fmt.Errorf("cosigner %d: account key is private; provide an xpub, not an xprv", i+1)
+		}
+		accountKeys = append(accountKeys, key)
+	}
+
+	receive, err := multisigChainAddresses(scriptType, required, accountKeys, multisigExternalChain, count)
+	if err != nil {
+		return nil, fmt.Errorf("receive addresses: %w", err)
+	}
+	change, err := multisigChainAddresses(scriptType, required, accountKeys, multisigChangeChain, count)
+	if err != nil {
+		return nil, fmt.Errorf("change addresses: %w", err)
+	}
+	return &BitcoinMultisigAddressSet{Receive: receive, Change: change}, nil
+}
+
+// multisigChainAddresses derives count addresses on one BIP48 chain (0 external,
+// 1 internal) for every account key, sorting each address's public keys.
+func multisigChainAddresses(scriptType BitcoinMultisigScriptType, required int, accountKeys []*hdkeychain.ExtendedKey, chain uint32, count int) ([]string, error) {
+	addresses := make([]string, 0, count)
+	for index := 0; index < count; index++ {
+		pubKeys := make([][]byte, 0, len(accountKeys))
+		for cosigner, accountKey := range accountKeys {
+			chainKey, err := accountKey.Derive(chain)
+			if err != nil {
+				return nil, fmt.Errorf("cosigner %d: failed to derive chain %d: %w", cosigner+1, chain, err)
+			}
+			addressKey, err := chainKey.Derive(uint32(index)) //nolint:gosec // index is bounded by count above.
+			if err != nil {
+				return nil, fmt.Errorf("cosigner %d: failed to derive index %d: %w", cosigner+1, index, err)
+			}
+			pubKey, err := addressKey.ECPubKey()
+			if err != nil {
+				return nil, fmt.Errorf("cosigner %d: failed to get public key: %w", cosigner+1, err)
+			}
+			pubKeys = append(pubKeys, pubKey.SerializeCompressed())
+		}
+
+		sort.Slice(pubKeys, func(i, j int) bool { return bytes.Compare(pubKeys[i], pubKeys[j]) < 0 })
+
+		script, err := multisigRedeemScript(pubKeys, required)
+		if err != nil {
+			return nil, err
+		}
+		address, err := multisigScriptAddress(script, scriptType)
+		if err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, address)
+	}
+	return addresses, nil
+}
+
+// multisigScriptAddress encodes a redeem script as the address the script type
+// commits to.
+func multisigScriptAddress(script []byte, scriptType BitcoinMultisigScriptType) (string, error) {
 	switch scriptType {
 	case BitcoinMultisigLegacyP2SH:
 		return payToScriptHashAddress(script)
@@ -239,6 +340,64 @@ func BitcoinMultisigAddress(mnemonic, bip39Passphrase string, scriptType Bitcoin
 	}
 }
 
+// validateMultisigPolicy checks the m-of-n shape shared by descriptors and
+// address derivation.
+func validateMultisigPolicy(required, cosignerCount int) error {
+	if required < 1 {
+		return fmt.Errorf("required signatures must be at least 1, got %d", required)
+	}
+	if cosignerCount < required {
+		return fmt.Errorf("%d required signatures need at least %d cosigners, got %d", required, required, cosignerCount)
+	}
+	if cosignerCount > MaxMultisigCosigners {
+		return fmt.Errorf("at most %d cosigners are supported, got %d", MaxMultisigCosigners, cosignerCount)
+	}
+	return nil
+}
+
+// NormalizeBitcoinExtendedKey rewrites a SLIP-0132 extended key (ypub/zpub and
+// their multisig Ypub/Zpub variants, public or private) to its BIP32 xpub/xprv
+// form. Standard xpub/xprv keys pass through unchanged.
+func NormalizeBitcoinExtendedKey(key string) (string, error) {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return "", errors.New("extended key is empty")
+	}
+
+	decoded, err := base58.Decode(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("invalid extended key: %w", err)
+	}
+	if len(decoded) != extendedKeyPayloadSize+extendedKeyChecksumSize {
+		return "", fmt.Errorf("extended key has %d bytes, want %d", len(decoded), extendedKeyPayloadSize+extendedKeyChecksumSize)
+	}
+
+	payload := decoded[:extendedKeyPayloadSize]
+	firstHash := sha256.Sum256(payload)
+	secondHash := sha256.Sum256(firstHash[:])
+	if !bytes.Equal(decoded[extendedKeyPayloadSize:], secondHash[:extendedKeyChecksumSize]) {
+		return "", errors.New("extended key checksum mismatch")
+	}
+
+	version := binary.BigEndian.Uint32(payload[:4])
+	var target uint32
+	switch version {
+	case xpubVersion, xprvVersion:
+		return trimmed, nil
+	case ypubVersion, zpubVersion, multisigYpubVersion, multisigZpubVersion:
+		target = xpubVersion
+	case yprvVersion, zprvVersion, multisigYprvVersion, multisigZprvVersion:
+		target = xprvVersion
+	default:
+		return "", fmt.Errorf("unsupported extended key version %#08x", version)
+	}
+
+	binary.BigEndian.PutUint32(payload[:4], target)
+	firstHash = sha256.Sum256(payload)
+	secondHash = sha256.Sum256(firstHash[:])
+	return base58.Encode(append(payload, secondHash[:extendedKeyChecksumSize]...)), nil
+}
+
 // BitcoinMultisigDescriptor renders the BIP380 output descriptor for a BIP48
 // multisig policy, for example
 //
@@ -249,14 +408,8 @@ func BitcoinMultisigAddress(mnemonic, bip39Passphrase string, scriptType Bitcoin
 // order because sortedmulti sorts derived public keys at derivation time, not
 // in the descriptor. No descriptor checksum is appended.
 func BitcoinMultisigDescriptor(scriptType BitcoinMultisigScriptType, required int, cosigners []BitcoinMultisigCosigner) (string, error) {
-	if required < 1 {
-		return "", fmt.Errorf("required signatures must be at least 1, got %d", required)
-	}
-	if len(cosigners) < required {
-		return "", fmt.Errorf("%d required signatures need at least %d cosigners, got %d", required, required, len(cosigners))
-	}
-	if len(cosigners) > MaxMultisigCosigners {
-		return "", fmt.Errorf("at most %d cosigners are supported, got %d", MaxMultisigCosigners, len(cosigners))
+	if err := validateMultisigPolicy(required, len(cosigners)); err != nil {
+		return "", err
 	}
 
 	expressions := make([]string, 0, len(cosigners))
@@ -289,7 +442,11 @@ func (c BitcoinMultisigCosigner) scriptExpression(scriptType BitcoinMultisigScri
 		return "", fmt.Errorf("account extended public key is empty")
 	}
 
-	key, err := hdkeychain.NewKeyFromString(xpub)
+	normalized, err := NormalizeBitcoinExtendedKey(xpub)
+	if err != nil {
+		return "", err
+	}
+	key, err := hdkeychain.NewKeyFromString(normalized)
 	if err != nil {
 		return "", fmt.Errorf("invalid account extended public key: %w", err)
 	}

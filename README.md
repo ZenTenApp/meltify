@@ -295,7 +295,7 @@ M of N: 1 /1
 Script Type: Native Segwit (P2WSH)
 Descriptor: wsh(sortedmulti(1,[3e1f3ae0/48'/0'/0'/2']xpub6FJWDKvyCX6JxLGwUxroV6L4vLxvyY5xff8348jD6VeEDtfQBjWagTFmnwFD9XcduRgMxniPaHXofxwa2M98iKJP5sVsWFcxpHPwjGbdMGB/0/*))
 Type: Software wallet
-Label: npub102xk3gvg50prsrgm76ksy8nh6enrsgwpqgr3hku4g204z364lnns533vq7
+Label: 3vq7
 Master fingerprint: 3e1f3ae0
 Derivation: m/48'/0'/0'/2'
 xpub: xpub6FJWDKvyCX6JxLGwUxroV6L4vLxvyY5xff8348jD6VeEDtfQBjWagTFmnwFD9XcduRgMxniPaHXofxwa2M98iKJP5sVsWFcxpHPwjGbdMGB
@@ -307,7 +307,7 @@ meltify-multisig ~/.ssh/id_ed25519
 meltify-multisig ~/.ssh/id_ed25519 --script-type nested --label cold
 ```
 
-`--script-type` (`-t`) selects the BIP48 script type: `native` (2', P2WSH — the default), `nested` (1', P2SH-P2WSH), or `legacy` (0', P2SH). `--label` sets the block's `Label` line and defaults to this key's Nostr npub. `--slip132` prints the account key as `Zpub`/`Ypub` instead of `xpub`; the descriptor always keeps the standard xpub.
+`--script-type` (`-t`) selects the BIP48 script type: `native` (2', P2WSH — the default), `nested` (1', P2SH-P2WSH), or `legacy` (0', P2SH). `--label` sets the block's `Label` line and defaults to the last 4 characters of this key's Nostr npub, because wallets such as Sparrow cap keystore labels at 16 characters. `--slip132` prints the account key as `Zpub`/`Ypub` instead of `xpub`; the descriptor always keeps the standard xpub.
 
 Only this key's account xpub can be derived here. For a policy with other cosigners, repeat `--cosigner-xpub` once per additional key and set `--required` (`-m`, default 1) to the m of the m-of-n policy:
 

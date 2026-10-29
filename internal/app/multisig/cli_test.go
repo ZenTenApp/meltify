@@ -143,14 +143,43 @@ func TestPolicyDescriptorRejectsNilKeys(t *testing.T) {
 	}
 }
 
-func TestKeystoreLabelDefaultsToNpub(t *testing.T) {
+func TestKeystoreLabelDefaultsToNpubSuffix(t *testing.T) {
 	t.Parallel()
 	got, err := keystoreLabel("", derive.GoldenMnemonic24)
 	if err != nil {
 		t.Fatalf("keystoreLabel: %v", err)
 	}
-	if got != derive.GoldenNpub {
-		t.Fatalf("label = %q, want %q", got, derive.GoldenNpub)
+	if want := "3vq7"; got != want {
+		t.Fatalf("label = %q, want %q", got, want)
+	}
+	if !strings.HasSuffix(derive.GoldenNpub, got) {
+		t.Fatalf("label %q is not the npub tail", got)
+	}
+	if len(got) > 16 {
+		t.Fatalf("label %q exceeds Sparrow's 16-character limit", got)
+	}
+}
+
+func TestNpubLabelSuffix(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		npub string
+		want string
+	}{
+		{name: "golden npub", npub: derive.GoldenNpub, want: "3vq7"},
+		{name: "exactly four", npub: "npub", want: "npub"},
+		{name: "shorter than four", npub: "ab", want: "ab"},
+		{name: "empty", npub: "", want: ""},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := npubLabelSuffix(test.npub); got != test.want {
+				t.Fatalf("npubLabelSuffix(%q) = %q, want %q", test.npub, got, test.want)
+			}
+		})
 	}
 }
 

@@ -20,10 +20,12 @@ const (
 	defaultScript   = "native"
 	policyTypeLabel = "Multi Signature HD"
 	walletTypeLabel = "Software wallet"
-	// npubLabelSuffixLen is how many trailing npub characters the default
-	// label keeps: Sparrow caps a keystore label at 16 characters, and a full
-	// npub is 63.
-	npubLabelSuffixLen = 4
+	// npubLabelPrefix marks a default keystore label as this key's Nostr
+	// identity. npubFingerprintLen is how many leading hex characters of the
+	// Nostr public key it carries: Sparrow caps a keystore label at 16
+	// characters, and a full npub is 63.
+	npubLabelPrefix    = "npub"
+	npubFingerprintLen = 4
 )
 
 // options holds the parsed CLI state for one run.
@@ -77,11 +79,11 @@ reports the combined M of N and emits a descriptor with every key. Descriptor
 keys keep the supplied order, because sortedmulti sorts derived public keys at
 derivation time rather than in the descriptor text.
 
-The default Label is the last four characters of this key's Nostr npub,
-because wallets such as Sparrow cap keystore labels at 16 characters. The
-OpenSSH private key must be password-protected; meltify-multisig prompts for
-that passphrase. Use --subaccount to derive a deterministic subaccount key
-first.`,
+The default Label is npub followed by the first four hex characters of this
+key's Nostr public key (npub7a8d, for example), because wallets such as
+Sparrow cap keystore labels at 16 characters. The OpenSSH private key must be
+password-protected; meltify-multisig prompts for that passphrase. Use
+--subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-multisig ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-multisig
   meltify-multisig ~/.ssh/id_ed25519 --script-type nested --label cold
@@ -105,7 +107,7 @@ first.`,
 	}
 
 	rootCmd.Flags().StringVarP(&opts.subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
-	rootCmd.Flags().StringVar(&opts.label, "label", "", "Keystore label shown in the block (default: last 4 characters of this key's Nostr npub)")
+	rootCmd.Flags().StringVar(&opts.label, "label", "", "Keystore label shown in the block (default: npub and the first 4 hex characters of this key's Nostr public key)")
 	rootCmd.Flags().StringVarP(&opts.scriptType, "script-type", "t", defaultScript, "BIP48 script type: native (P2WSH), nested (P2SH-P2WSH), or legacy (P2SH)")
 	rootCmd.Flags().BoolVar(&opts.slip132, "slip132", false, "Print the SLIP-0132 account key (ypub/zpub) instead of the standard xpub")
 	rootCmd.Flags().IntVarP(&opts.required, "required", "m", 1, "Required signatures (the m of the m-of-n policy)")
@@ -141,8 +143,8 @@ func runWithOptions(opts *options, stdin io.Reader) error {
 	return printPolicyBlock(mnemonic, scriptType, label, opts)
 }
 
-// keystoreLabel resolves the block label, defaulting to the last characters of
-// the key's Nostr npub so the block fits Sparrow's 16-character label limit.
+// keystoreLabel resolves the block label, defaulting to the key's Nostr
+// identity fingerprint so the block fits Sparrow's 16-character label limit.
 func keystoreLabel(flagValue, mnemonic string) (string, error) {
 	if trimmed := strings.TrimSpace(flagValue); trimmed != "" {
 		return trimmed, nil
@@ -152,16 +154,18 @@ func keystoreLabel(flagValue, mnemonic string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("could not derive Nostr npub for the default label: %w", err)
 	}
-	return npubLabelSuffix(nostrKeys.Npub), nil
+	return npubFingerprintLabel(nostrKeys.PubKeyHex), nil
 }
 
-// npubLabelSuffix returns the trailing npubLabelSuffixLen characters of npub,
-// or npub itself when it is already that short.
-func npubLabelSuffix(npub string) string {
-	if len(npub) <= npubLabelSuffixLen {
-		return npub
+// npubFingerprintLabel builds the default label from a Nostr public key hex
+// string: the npubLabelPrefix plus its leading npubFingerprintLen characters.
+// The bech32 npub tail is checksum, not key material, so the hex form is used.
+func npubFingerprintLabel(pubKeyHex string) string {
+	fingerprint := pubKeyHex
+	if len(fingerprint) > npubFingerprintLen {
+		fingerprint = fingerprint[:npubFingerprintLen]
 	}
-	return npub[len(npub)-npubLabelSuffixLen:]
+	return npubLabelPrefix + fingerprint
 }
 
 // printPolicyBlock renders the ===== BITCOIN ===== policy block.

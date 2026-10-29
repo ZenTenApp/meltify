@@ -143,41 +143,41 @@ func TestPolicyDescriptorRejectsNilKeys(t *testing.T) {
 	}
 }
 
-func TestKeystoreLabelDefaultsToNpubSuffix(t *testing.T) {
+func TestKeystoreLabelDefaultsToNpubFingerprint(t *testing.T) {
 	t.Parallel()
 	got, err := keystoreLabel("", derive.GoldenMnemonic24)
 	if err != nil {
 		t.Fatalf("keystoreLabel: %v", err)
 	}
-	if want := "3vq7"; got != want {
+	if want := "npub7a8d"; got != want {
 		t.Fatalf("label = %q, want %q", got, want)
 	}
-	if !strings.HasSuffix(derive.GoldenNpub, got) {
-		t.Fatalf("label %q is not the npub tail", got)
+	if !strings.HasPrefix(derive.GoldenPubHex, strings.TrimPrefix(got, "npub")) {
+		t.Fatalf("label %q is not the npub fingerprint prefix", got)
 	}
 	if len(got) > 16 {
 		t.Fatalf("label %q exceeds Sparrow's 16-character limit", got)
 	}
 }
 
-func TestNpubLabelSuffix(t *testing.T) {
+func TestNpubFingerprintLabel(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name string
-		npub string
-		want string
+		name      string
+		pubKeyHex string
+		want      string
 	}{
-		{name: "golden npub", npub: derive.GoldenNpub, want: "3vq7"},
-		{name: "exactly four", npub: "npub", want: "npub"},
-		{name: "shorter than four", npub: "ab", want: "ab"},
-		{name: "empty", npub: "", want: ""},
+		{name: "golden pubkey", pubKeyHex: derive.GoldenPubHex, want: "npub7a8d"},
+		{name: "exactly four", pubKeyHex: "7a8d", want: "npub7a8d"},
+		{name: "shorter than four", pubKeyHex: "ab", want: "npubab"},
+		{name: "empty", pubKeyHex: "", want: "npub"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if got := npubLabelSuffix(test.npub); got != test.want {
-				t.Fatalf("npubLabelSuffix(%q) = %q, want %q", test.npub, got, test.want)
+			if got := npubFingerprintLabel(test.pubKeyHex); got != test.want {
+				t.Fatalf("npubFingerprintLabel(%q) = %q, want %q", test.pubKeyHex, got, test.want)
 			}
 		})
 	}

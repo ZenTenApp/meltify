@@ -232,7 +232,6 @@ func TestExecuteScriptTypeFlagIsParsed(t *testing.T) {
 }
 
 func TestPrintAddressBlocks(t *testing.T) {
-	t.Parallel()
 
 	set := &derive.BitcoinMultisigAddressSet{
 		Receive: []string{"bc1qreceive0", "bc1qreceive1"},
@@ -256,7 +255,6 @@ func TestPrintAddressBlocks(t *testing.T) {
 }
 
 func TestPrintAddressBlocksIgnoresNilSet(t *testing.T) {
-	t.Parallel()
 	if out := captureStdout(t, func() { printAddressBlocks(nil) }); out != "" {
 		t.Fatalf("stdout = %q, want empty", out)
 	}

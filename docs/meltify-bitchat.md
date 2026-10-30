@@ -148,7 +148,24 @@ captured from seedify, and cross-checked against
 - The derived identity is cryptographically linked to the source SSH key:
   compromising either key compromises both.
 
+## meltify-info
+
+`meltify-info` prints the same peer ID as a compact one-liner directly under its
+`bchat:` line. The wallet list and the two identity lines stay separated by a
+blank line, but the identity lines themselves share one block:
+
+```
+xrpl:rN8rHzQ7fQRWaMw1mXXtKsukcdSpCqbYZK
+
+bchat:bd37837216c92c303abcd702758022b21e3f30352c02710d3e53b986d5e5354e42
+bitchat:dd5ebd8bac8d78b2
+```
+
+Both trailing lines are identity, not chains: `bchat:` is the Beldex BChat chat
+ID and `bitchat:` is the BitChat mesh peer ID. The line is produced by
+`derive.BitChatPeerID`, which is locked against `derive.BitChat` by a test so the
+siblings cannot drift.
+
 ## Future work
 
 - `--public` to print only the peer ID, public keys, and npub.
-- A `bitchat:<peer-id>` line in `meltify-info`, next to `bchat:`.

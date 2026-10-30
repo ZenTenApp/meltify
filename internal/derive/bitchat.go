@@ -85,10 +85,9 @@ func BitChat(key *ed25519.PrivateKey) (*BitChatKeys, error) {
 	}
 	seed := key.Seed()
 
-	noisePrivScalar := bitchatX25519Scalar(bitchatNoiseLabel, seed)
-	noisePubKey, err := curve25519.X25519(noisePrivScalar, curve25519.Basepoint)
+	noisePrivScalar, noisePubKey, err := bitchatNoiseKeypair(seed)
 	if err != nil {
-		return nil, fmt.Errorf("bitchat: noise public key derivation failed: %w", err)
+		return nil, err
 	}
 
 	signSeed := bitchatSHA256(bitchatSignLabel, seed)
@@ -101,9 +100,7 @@ func BitChat(key *ed25519.PrivateKey) (*BitChatKeys, error) {
 	deviceSeed := bitchatSHA256(bitchatDeviceLabel, seed)
 
 	noiseFingerprint := sha256.Sum256(noisePubKey)
-
-	peerID := make([]byte, bitchatPeerIDSize)
-	copy(peerID, noiseFingerprint[:bitchatPeerIDSize])
+	peerID := bitchatPeerIDFromFingerprint(noiseFingerprint[:])
 
 	mnemonic24, err := Mnemonic24(key)
 	if err != nil {
@@ -124,6 +121,38 @@ func BitChat(key *ed25519.PrivateKey) (*BitChatKeys, error) {
 		PeerID:           peerID,
 		Nostr:            nostrKeys,
 	}, nil
+}
+
+// BitChatPeerID returns the 16-character BitChat mesh peer ID for key:
+// SHA-256(noise_pub)[:8], lowercase hex — the same value meltify-bitchat prints
+// as bitchat:<peer-id>.
+func BitChatPeerID(key *ed25519.PrivateKey) (string, error) {
+	if key == nil {
+		return "", errors.New("ed25519 key is required")
+	}
+	_, noisePubKey, err := bitchatNoiseKeypair(key.Seed())
+	if err != nil {
+		return "", err
+	}
+	fingerprint := sha256.Sum256(noisePubKey)
+	return hex.EncodeToString(bitchatPeerIDFromFingerprint(fingerprint[:])), nil
+}
+
+// bitchatNoiseKeypair returns the clamped X25519 static scalar and its public key.
+func bitchatNoiseKeypair(seed []byte) ([]byte, []byte, error) {
+	scalar := bitchatX25519Scalar(bitchatNoiseLabel, seed)
+	pub, err := curve25519.X25519(scalar, curve25519.Basepoint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("bitchat: noise public key derivation failed: %w", err)
+	}
+	return scalar, pub, nil
+}
+
+// bitchatPeerIDFromFingerprint takes the leading bytes of SHA-256(noise_pub).
+func bitchatPeerIDFromFingerprint(fingerprint []byte) []byte {
+	peerID := make([]byte, bitchatPeerIDSize)
+	copy(peerID, fingerprint[:bitchatPeerIDSize])
+	return peerID
 }
 
 // bitchatSHA256 returns SHA-256(label || seed).

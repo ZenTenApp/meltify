@@ -154,3 +154,26 @@ func TestBitChatSubkeysAreDomainSeparated(t *testing.T) {
 		distinct[value] = struct{}{}
 	}
 }
+
+// TestBitChatPeerIDMatchesBitChat locks the standalone helper meltify-info uses
+// against the full identity derivation, so the two can never drift.
+func TestBitChatPeerIDMatchesBitChat(t *testing.T) {
+	t.Parallel()
+	key := ed25519.NewKeyFromSeed(FixedSeed00to1f)
+
+	peerID, err := BitChatPeerID(&key)
+	if err != nil {
+		t.Fatalf("BitChatPeerID: %v", err)
+	}
+	assertEq(t, "peer id", peerID, GoldenBitChatPeerID)
+
+	keys, err := BitChat(&key)
+	if err != nil {
+		t.Fatalf("BitChat: %v", err)
+	}
+	assertEq(t, "peer id vs BitChat", peerID, keys.PeerIDHex())
+
+	if _, err := BitChatPeerID(nil); err == nil {
+		t.Fatal("BitChatPeerID(nil) succeeded, want error")
+	}
+}

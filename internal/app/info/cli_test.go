@@ -148,6 +148,7 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		"worldchain:" + derive.GoldenEthereum,
 		"xrpl:" + derive.GoldenRipple,
 		"bchat:" + goldenBchat(t),
+		"bitchat:" + derive.GoldenBitChatPeerID,
 	}
 	last := -1
 	for _, marker := range markers {
@@ -170,6 +171,21 @@ func TestPrintReportSectionOrder(t *testing.T) {
 		between := captured[idxXrpl+len(xrpl) : idxBchat]
 		if !strings.HasPrefix(between, "\n\n") {
 			t.Errorf("expected a blank line before bchat, got %q", between)
+		}
+	}
+
+	// The two non-chain identity lines close the report as one block: bchat and
+	// bitchat are adjacent lines, with the blank line only before the pair.
+	bitchatLine := "bitchat:" + derive.GoldenBitChatPeerID
+	idxBitchat := strings.Index(captured, bitchatLine)
+	if idxBitchat > idxBchat {
+		between := captured[idxBchat+len(bchatLine) : idxBitchat]
+		if between != "\n" {
+			t.Errorf("expected bchat and bitchat to be adjacent lines, got %q between", between)
+		}
+		tail := strings.TrimRight(captured[idxBitchat+len(bitchatLine):], "\n")
+		if tail != "" {
+			t.Errorf("bitchat should be the last line, found %q after it", tail)
 		}
 	}
 }

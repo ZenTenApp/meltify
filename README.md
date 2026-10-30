@@ -29,11 +29,12 @@ go install github.com/ZenTenApp/meltify/cmd/meltify-dkim@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-dnssec@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-i2p@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-wireguard@latest
+go install github.com/ZenTenApp/meltify/cmd/meltify-bitchat@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-jks@latest
 go install github.com/ZenTenApp/meltify/cmd/meltify-multisig@latest
 ```
 
-`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, `meltify-i2p`, `meltify-wireguard`, `meltify-jks`, and `meltify-multisig` load the key themselves and do not need `meltify`.
+`meltify-brave`, `meltify-beldex`, `meltify-monero`, and `meltify-polyseed` execute `meltify` internally, so `meltify` must be installed next to them or available in `PATH`. `meltify-info`, `meltify-pgp`, `meltify-onion`, `meltify-rsa`, `meltify-dkim`, `meltify-dnssec`, `meltify-i2p`, `meltify-wireguard`, `meltify-bitchat`, `meltify-jks`, and `meltify-multisig` load the key themselves and do not need `meltify`.
 
 **Docker**:
 
@@ -132,6 +133,7 @@ It supports `--subaccount` / `-s`, `--birthday`, and the same completion/manpage
 - Nostr `npub` / hex public key
 - wallet addresses as `label:address` (EVM chains reuse the Ethereum `0x`; TON is Wallet V4R2 UQ at `m/44'/607'/0'`; Monero and Beldex use the 25-word CryptoNote legacy primary)
 - BChat chat ID, printed after the chain list (not a crypto chain)
+- BitChat mesh peer ID as `bitchat:<16 hex>`, on the line directly under `bchat:` (also not a crypto chain)
 
 All forms come from the same master seed, so the SSH key, raw seed, and MELT phrase are the same secret in different encodings; the Nostr keys and BIP39 wallet addresses are deterministically derived from the MELT phrase. `meltify-info` loads the key itself and supports `--subaccount` / `-s` plus the same completion/manpage commands as `meltify`.
 
@@ -223,6 +225,21 @@ The private key is secret key material: it is printed to stdout, so do not pipe 
 
 It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
+## BitChat
+
+`meltify-bitchat` loads an Ed25519 OpenSSH private key and derives a deterministic BitChat identity: the X25519 Noise static key, the Ed25519 signing key, the device seed behind per-geohash/bridge Nostr identities, the Nostr `nsec` / `npub`, and the mesh peer ID.
+
+```sh
+meltify-bitchat ~/.ssh/id_ed25519
+meltify-bitchat ~/.ssh/id_ed25519 --subaccount subaccount-label
+```
+
+The output is secret key material and is printed to stdout.
+
+BitChat (iOS/Android) generates these four secrets independently at random and has no import path, so the `bitchat:*` domain-separation labels are meltify's own and this printout cannot be pasted into a native client. The Nostr slice is NIP-06 of the same 24-word MELT phrase `meltify-info` uses, so one meltify identity carries one `nsec` across both tools. The nickname BitChat also stores is chosen by the user and is not derived. See [docs/meltify-bitchat.md](docs/meltify-bitchat.md).
+
+It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
+
 ## Java KeyStore
 
 `meltify-jks` loads an Ed25519 OpenSSH private key and derives a deterministic RSA private key plus self-signed X.509 certificate, then writes a password-protected Java KeyStore (`.jks`) to `--output` (`0600`). `--alias` and `--output` are required; `--dn` defaults to `CN=<alias>` and `--validity` to 10000 days. It also prints the Android signing secrets (keystore base64, alias, store password, key password) for CI/CD.
@@ -259,6 +276,7 @@ meltify-dkim completion bash
 meltify-dnssec completion bash
 meltify-i2p completion bash
 meltify-wireguard completion bash
+meltify-bitchat completion bash
 meltify-jks completion bash
 meltify-multisig completion bash
 ```
@@ -279,6 +297,7 @@ meltify-dkim man
 meltify-dnssec man
 meltify-i2p man
 meltify-wireguard man
+meltify-bitchat man
 meltify-jks man
 meltify-multisig man
 ```

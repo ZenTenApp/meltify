@@ -165,6 +165,7 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
   TON is Wallet V4R2 UQ at m/44'/607'/0'; Monero and Beldex use the
   25-word CryptoNote legacy primary)
 - BChat chat ID, printed after the chain list (not a crypto chain)
+- BitChat mesh peer ID, printed after the BChat line (not a crypto chain)
 
 All forms are derived from the same master seed, so the SSH key, raw seed, and
 MELT phrase are the same secret in different encodings; the Nostr keys and
@@ -235,6 +236,11 @@ func printReport(material *sshkey.Material) error {
 		return err
 	}
 
+	bitChatPeerID, err := derive.BitChatPeerID(material.Key)
+	if err != nil {
+		return fmt.Errorf("could not derive bitchat identity: %w", err)
+	}
+
 	pubB64 := base64.StdEncoding.EncodeToString(sshPubKey.Marshal())
 	publicKeyLine := "ssh-ed25519 " + pubB64 + " " + nostrKeys.Npub
 	privB64 := base64.StdEncoding.EncodeToString(privateKeyBlock.Bytes)
@@ -268,6 +274,7 @@ func printReport(material *sshkey.Material) error {
 	}
 	out.Blank()
 	out.Value("bchat:" + chatID)
+	out.Value("bitchat:" + bitChatPeerID)
 	out.Blank()
 	return nil
 }

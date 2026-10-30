@@ -124,6 +124,20 @@ Activate: 20200101000000
 	GoldenI2PX25519PrivKey  = "0826caee6a4dc94b2318f90fbcf2a64883ba2d60ee299610a14486a08b46f344"
 	GoldenI2PEd25519Seed    = "e49a9de345bd6020556944748db8c911edd45e9fc217e3aec77bb6c98d9ba0db"
 
+	// BitChat identity for FixedSeed00to1f. The bitchat:* labels are
+	// meltify-native (BitChat specifies no SSH-seed mapping and seedify has no
+	// BitChat domain), so these values were computed independently from the
+	// documented formula in Python — hashlib plus a from-scratch RFC 7748 X25519
+	// implementation — not captured from seedify. The nsec/npub slice is
+	// GoldenNsec/GoldenNpub by construction (NIP-06 of GoldenMnemonic24).
+	GoldenBitChatNoisePrivateKey  = "e0b9951e884c7a169dcd695a4e39c9575b054d9223d644c53a3b0fa6a064b948"
+	GoldenBitChatNoisePublicKey   = "5bb97b737ce034880d1a550c6dcdafefe7ae725942175fb441c59d7e82ceca26"
+	GoldenBitChatNoiseFingerprint = "dd5ebd8bac8d78b28a7f926c94409ecd26a132303fe374086c98cb2d9948dcc6"
+	GoldenBitChatSigningSeed      = "4bd0172690ab8efdba9d8b6dfb5d2bbc34200b17224a774334bf85944d3098ee"
+	GoldenBitChatSigningPublicKey = "e137abb37aae838e9c35d4e6d0339c6e2be385df2778fe32de66721941874d05"
+	GoldenBitChatDeviceSeed       = "6a571963d950bb247f71aeae02908596e702405a63906a462df7ac7f59776310"
+	GoldenBitChatPeerID           = "dd5ebd8bac8d78b2"
+
 	// WireGuard static keypair from seedify v1.36.0 DeriveWireGuardKeys for
 	// FixedSeed00to1f (wg genkey / wg pubkey base64 format).
 	GoldenWireGuardPrivateKey = "UIZ4ezXI7GMxuN4W00fAbiwrH8AOvxKXhAGnsDKvQ2c="

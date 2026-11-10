@@ -49,7 +49,7 @@ Using meltify’s existing NIP-06 nsec keeps one identity across Nostr clients; 
 `--subaccount camp` runs `ActivateSubaccount` first, then the same labels, so
 camp and default are different peer IDs.
 
-`--bip39-passphrase` (`derive.BitChatWithPassphrase`) is mixed into the NIP-06
+`--bip39-passphrase` / `-e` (`derive.BitChatWithPassphrase`) is mixed into the NIP-06
 step only: the noise, signing, and device secrets come from the raw Ed25519 seed,
 so the mesh peer ID, noise keys, and device seed do not change, while the `nsec` /
 `npub` do. Pass the same passphrase to `meltify-info` to keep one `nsec` across

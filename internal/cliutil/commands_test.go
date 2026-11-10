@@ -52,6 +52,12 @@ func TestAddBIP39PassphraseFlag(t *testing.T) {
 	if flag.DefValue != "" {
 		t.Errorf("default = %q, want empty (no passphrase)", flag.DefValue)
 	}
+	if flag.Shorthand != BIP39PassphraseShorthand {
+		t.Errorf("shorthand = %q, want %q", flag.Shorthand, BIP39PassphraseShorthand)
+	}
+	if got := cmd.Flags().ShorthandLookup(BIP39PassphraseShorthand); got == nil || got.Name != BIP39PassphraseFlag {
+		t.Errorf("shorthand %q does not resolve to %q", BIP39PassphraseShorthand, BIP39PassphraseFlag)
+	}
 	if !strings.Contains(flag.Usage, "25th word") {
 		t.Errorf("usage does not explain the flag: %q", flag.Usage)
 	}
@@ -64,6 +70,34 @@ func TestAddBIP39PassphraseFlag(t *testing.T) {
 	}
 	if value != "correct horse" {
 		t.Errorf("value = %q, want %q", value, "correct horse")
+	}
+
+}
+
+// TestBIP39PassphraseShorthandParses asserts cobra parses -e exactly like the
+// long form, which is the shape a typo would silently drop.
+func TestBIP39PassphraseShorthandParses(t *testing.T) {
+	t.Parallel()
+
+	for _, arg := range []string{"-" + BIP39PassphraseShorthand, "--" + BIP39PassphraseFlag} {
+		t.Run(arg, func(t *testing.T) {
+			t.Parallel()
+
+			var value string
+			cmd := newFlagCommand(&value)
+			captureStdout(t, func() {
+				cmd.SetArgs([]string{arg, "TREZOR"})
+				if err := cmd.Execute(); err != nil {
+					t.Errorf("execute %s: %v", arg, err)
+				}
+			})
+			if value != "TREZOR" {
+				t.Fatalf("value = %q, want %q", value, "TREZOR")
+			}
+			if !cmd.Flags().Changed(BIP39PassphraseFlag) {
+				t.Errorf("%s did not mark %q as changed", arg, BIP39PassphraseFlag)
+			}
+		})
 	}
 }
 

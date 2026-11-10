@@ -102,7 +102,7 @@ Without `--subaccount`, the 25-word Monero legacy seed is identical to the Belde
 
 The output has two sections separated by a row of asterisks. The first is the default CryptoNote legacy section above. The second is the Unstoppable/Cake section: it starts with the 24-word MELT BIP39 phrase (restore this in Unstoppable), then the 25-word Cake/Feather seed that Unstoppable displays for that phrase, then the corresponding `4…` addresses. The Cake keys come from the BIP39 phrase with no Keccak (`m/44'/128'/0'/0/0`); the 25-word Cake seed is not the CryptoNote legacy seed printed in the first section.
 
-It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`.
+It supports `--subaccount` / `-s`, `--bip39-passphrase` (Unstoppable/Cake section only), and the same completion/manpage commands as `meltify`. See [BIP39 passphrase](#bip39-passphrase).
 
 ## Polyseed (Monero 16-word)
 
@@ -135,7 +135,17 @@ It supports `--subaccount` / `-s`, `--birthday`, and the same completion/manpage
 - BChat chat ID, printed after the chain list (not a crypto chain)
 - BitChat mesh peer ID as `bitchat:<16 hex>`, on the line directly under `bchat:` (also not a crypto chain)
 
-All forms come from the same master seed, so the SSH key, raw seed, and MELT phrase are the same secret in different encodings; the Nostr keys and BIP39 wallet addresses are deterministically derived from the MELT phrase. `meltify-info` loads the key itself and supports `--subaccount` / `-s` plus the same completion/manpage commands as `meltify`.
+All forms come from the same master seed, so the SSH key, raw seed, and MELT phrase are the same secret in different encodings; the Nostr keys and BIP39 wallet addresses are deterministically derived from the MELT phrase. `meltify-info` loads the key itself and supports `--subaccount` / `-s`, `--bip39-passphrase`, and the same completion/manpage commands as `meltify`. See [BIP39 passphrase](#bip39-passphrase).
+
+## BIP39 passphrase
+
+`--bip39-passphrase` adds the BIP39 passphrase (the wallet "25th word") that BIP39 mixes into the seed with PBKDF2. It is supported by `meltify-info`, `meltify-multisig`, `meltify-monero` (Unstoppable/Cake section only), and `meltify-bitchat` (NIP-06 `nsec` only).
+
+The 24-word MELT phrase is derived from the Ed25519 seed, so the passphrase never changes the phrase; it changes every key derived from it. The passphrase is therefore printed as its own `BIP39 PASSPHRASE (WALLET 25TH WORD)` block next to the phrase, because the phrase alone no longer restores the same wallet. An explicitly empty `--bip39-passphrase ""` is rejected so a typo cannot silently mean "no passphrase"; the value is visible in process arguments, like `--store-password`.
+
+Not affected: everything meltify derives from the raw Ed25519 seed with domain-separated HMAC labels (OpenSSH, PGP, RSA, DKIM, DNSSEC, Tor, I2P, WireGuard, JKS, polyseed, BitChat's noise/signing/device secrets), and the CryptoNote legacy 25-word seeds, which are not BIP39.
+
+The passphrase-path goldens in `internal/derive/golden.go` (`GoldenBIP39*`) are captured from seedify v1.36.0 for the same seed and passphrase.
 
 ## PGP
 
@@ -238,7 +248,7 @@ The output is secret key material and is printed to stdout.
 
 BitChat (iOS/Android) generates these four secrets independently at random and has no import path, so the `bitchat:*` domain-separation labels are meltify's own and this printout cannot be pasted into a native client. The Nostr slice is NIP-06 of the same 24-word MELT phrase `meltify-info` uses, so one meltify identity carries one `nsec` across both tools. The nickname BitChat also stores is chosen by the user and is not derived. See [docs/meltify-bitchat.md](docs/meltify-bitchat.md).
 
-It supports `--subaccount` / `-s` and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
+It supports `--subaccount` / `-s` and `--bip39-passphrase` (NIP-06 `nsec` only), and the same completion/manpage commands as `meltify`. Like `meltify-info`, it loads the key itself and does not need the `meltify` binary.
 
 ## Java KeyStore
 
@@ -325,6 +335,8 @@ xpub: xpub6FJWDKvyCX6JxLGwUxroV6L4vLxvyY5xff8348jD6VeEDtfQBjWagTFmnwFD9XcduRgMxn
 meltify-multisig ~/.ssh/id_ed25519
 meltify-multisig ~/.ssh/id_ed25519 --script-type nested --label cold
 ```
+
+`--bip39-passphrase` sets the BIP39 passphrase (wallet 25th word) of the master seed; it moves the master fingerprint, the account xpub, the descriptor, and the default label together, and is printed as its own block after the policy block, outside the `===== BITCOIN =====` markers so the block stays a valid wallet import. See [BIP39 passphrase](#bip39-passphrase).
 
 `--script-type` (`-t`) selects the BIP48 script type: `native` (2', P2WSH — the default), `nested` (1', P2SH-P2WSH), or `legacy` (0', P2SH). `--label` sets the block's `Label` line and defaults to `npub` plus the first 4 hex characters of this key's Nostr public key, because wallets such as Sparrow cap keystore labels at 16 characters. `--slip132` prints the account key as `Zpub`/`Ypub` instead of `xpub`; the descriptor always keeps the standard xpub.
 

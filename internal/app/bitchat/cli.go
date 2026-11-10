@@ -29,7 +29,7 @@ func Execute(args []string, stdin io.Reader, info cliutil.VersionInfo) error {
 }
 
 func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
-	var subaccount string
+	var subaccount, bip39Passphrase string
 
 	rootCmd := &cobra.Command{
 		Use:   binaryName + " [key-path]",
@@ -50,10 +50,17 @@ there. The labels are meltify-native and the Nostr slice is the same NIP-06 nsec
 meltify-info already prints, so one meltify identity keeps one nsec.
 
 The OpenSSH private key must be password-protected; meltify-bitchat prompts for
-that passphrase. Use --subaccount to derive a deterministic subaccount key first.`,
+that passphrase. Use --subaccount to derive a deterministic subaccount key first.
+
+--bip39-passphrase sets the BIP39 passphrase (the wallet 25th word) mixed into
+the NIP-06 Nostr keys, and prints it as its own secret block. The noise, signing,
+and device secrets come from the raw Ed25519 seed and do not change, so the mesh
+peer ID is unaffected. Pass the same passphrase to meltify-info to keep one nsec
+across both commands.`,
 		Example: `  meltify-bitchat ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-bitchat
-  meltify-bitchat ~/.ssh/id_ed25519 --subaccount subaccount-label`,
+  meltify-bitchat ~/.ssh/id_ed25519 --subaccount subaccount-label
+  meltify-bitchat ~/.ssh/id_ed25519 --bip39-passphrase "correct horse battery staple"`,
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -68,16 +75,20 @@ that passphrase. Use --subaccount to derive a deterministic subaccount key first
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, stdin)
+			if err := cliutil.ValidateBIP39Passphrase(cmd, bip39Passphrase); err != nil {
+				return err //nolint:wrapcheck // Message already names the flag; wrapping would repeat it.
+			}
+			return runWithOptions(keyPath, subaccount, bip39Passphrase, stdin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
+	cliutil.AddBIP39PassphraseFlag(rootCmd, &bip39Passphrase)
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
 	rootCmd.AddCommand(cliutil.NewCompletionCommand(rootCmd, binaryName))
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount string, stdin io.Reader) error {
+func runWithOptions(keyPath, subaccount, bip39Passphrase string, stdin io.Reader) error {
 	material, err := sshkey.LoadEd25519Key(keyPath, stdin)
 	if err != nil {
 		return fmt.Errorf("could not load SSH key: %w", err)
@@ -86,17 +97,17 @@ func runWithOptions(keyPath, subaccount string, stdin io.Reader) error {
 		return fmt.Errorf("could not activate subaccount: %w", err)
 	}
 
-	keys, err := derive.BitChat(material.Key)
+	keys, err := derive.BitChatWithPassphrase(material.Key, bip39Passphrase)
 	if err != nil {
 		return fmt.Errorf("could not derive BitChat identity: %w", err)
 	}
-	return printReport(keys)
+	return printReport(keys, bip39Passphrase)
 }
 
 // printReport renders every BitChat secret and the derived public material in
 // the meltify block layout: secrets first, then public values, then the compact
 // bitchat:<peer-id> line.
-func printReport(keys *derive.BitChatKeys) error {
+func printReport(keys *derive.BitChatKeys, bip39Passphrase string) error {
 	if keys == nil {
 		return errors.New("BitChat key material is incomplete")
 	}
@@ -112,6 +123,7 @@ func printReport(keys *derive.BitChatKeys) error {
 	out.BlankPair()
 	out.Block("DEVICE SEED (GEOHASH HMAC)", hex.EncodeToString(keys.DeviceSeed), true)
 	out.BlankPair()
+	cliutil.PrintBIP39Passphrase(out, bip39Passphrase)
 	out.RawBorderBlock("----- nSecKey / hexSecKey -----", []termout.BlockLine{
 		{Text: keys.Nostr.Nsec, Sensitive: true},
 		{Text: keys.Nostr.PrivKeyHex, Sensitive: true},

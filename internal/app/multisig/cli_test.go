@@ -145,7 +145,7 @@ func TestPolicyDescriptorRejectsNilKeys(t *testing.T) {
 
 func TestKeystoreLabelDefaultsToNpubFingerprint(t *testing.T) {
 	t.Parallel()
-	got, err := keystoreLabel("", derive.GoldenMnemonic24)
+	got, err := keystoreLabel("", derive.GoldenMnemonic24, "")
 	if err != nil {
 		t.Fatalf("keystoreLabel: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestNpubFingerprintLabel(t *testing.T) {
 
 func TestKeystoreLabelUsesFlag(t *testing.T) {
 	t.Parallel()
-	got, err := keystoreLabel("  cold-storage  ", derive.GoldenMnemonic24)
+	got, err := keystoreLabel("  cold-storage  ", derive.GoldenMnemonic24, "")
 	if err != nil {
 		t.Fatalf("keystoreLabel: %v", err)
 	}
@@ -318,4 +318,72 @@ func captureStdout(t *testing.T, fn func()) string {
 		t.Fatalf("read pipe: %v", readErr)
 	}
 	return string(data)
+}
+
+// TestBIP39PassphraseMovesFingerprintXpubAndLabelTogether locks the invariant
+// that must hold for a passphrase run: the master fingerprint, the account
+// xpub, the descriptor, and the default label all describe the same master
+// seed. A mismatch would produce a policy block that imports into a wallet as a
+// different account than the addresses printed below it.
+func TestBIP39PassphraseMovesFingerprintXpubAndLabelTogether(t *testing.T) {
+	t.Parallel()
+
+	opts := &options{scriptType: "native", required: 1, bip39Passphrase: derive.GoldenBIP39Passphrase}
+
+	label, err := keystoreLabel("", derive.GoldenMnemonic24, opts.bip39Passphrase)
+	if err != nil {
+		t.Fatalf("keystoreLabel: %v", err)
+	}
+	if want := "npub" + derive.GoldenBIP39PubHex[:npubFingerprintLen]; label != want {
+		t.Fatalf("label = %q, want %q", label, want)
+	}
+
+	out := captureStdout(t, func() {
+		if printErr := printPolicyBlock(derive.GoldenMnemonic24, derive.BitcoinMultisigNativeSegwitP2WSH, label, opts); printErr != nil {
+			t.Errorf("printPolicyBlock: %v", printErr)
+		}
+	})
+
+	for _, want := range []string{
+		"Master fingerprint: " + derive.GoldenBIP39MFP,
+		"xpub: " + derive.GoldenBIP39MultisigXpub,
+		"[" + derive.GoldenBIP39MFP + "/48'/0'/0'/2']" + derive.GoldenBIP39MultisigXpub,
+		"Label: " + label,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("policy block missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, derive.GoldenBitcoinMasterFingerprint) || strings.Contains(out, derive.GoldenBitcoinMultisigNativeXpub) {
+		t.Error("policy block still carries no-passphrase material")
+	}
+
+	// The passphrase itself is a secret the block cannot restore without, so it
+	// is printed — but outside the ===== BITCOIN ===== markers, which stay a
+	// copy-pasteable wallet import.
+	const blockEnd = "===== BITCOIN =====\n"
+	if idx := strings.LastIndex(out, blockEnd); idx < 0 || !strings.Contains(out[idx:], derive.GoldenBIP39Passphrase) {
+		t.Fatalf("passphrase not printed after the policy block:\n%s", out)
+	}
+	if strings.Contains(out[:strings.LastIndex(out, blockEnd)], derive.GoldenBIP39Passphrase) {
+		t.Fatalf("passphrase printed inside the policy block:\n%s", out)
+	}
+}
+
+// TestBIP39PassphraseRejectsEmptyFlag asserts a passphrase typo cannot silently
+// mean "no passphrase".
+func TestBIP39PassphraseRejectsEmptyFlag(t *testing.T) {
+	t.Parallel()
+
+	cmd := newRootCommand(strings.NewReader(""), cliutil.VersionInfo{})
+	if err := cmd.Flags().Set(cliutil.BIP39PassphraseFlag, ""); err != nil {
+		t.Fatalf("set flag: %v", err)
+	}
+	if err := cliutil.ValidateBIP39Passphrase(cmd, ""); err == nil {
+		t.Fatal("explicitly empty --bip39-passphrase succeeded")
+	}
+	fresh := newRootCommand(strings.NewReader(""), cliutil.VersionInfo{})
+	if err := cliutil.ValidateBIP39Passphrase(fresh, ""); err != nil {
+		t.Fatalf("unset flag rejected: %v", err)
+	}
 }

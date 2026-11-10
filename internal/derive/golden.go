@@ -171,3 +171,38 @@ Activate: 20200101000000
 	GoldenBitcoinMultisigNestedAddr = "3DfPEvJYCPVwEvRvqfH2xP9UHEn4QKKmSb"
 	GoldenBitcoinMultisigNativeAddr = "bc1qzulc7pu8ggzyujd58zp87lh4hsd0ax96ypyrwty5m2me8rudwtwq8m6rpe"
 )
+
+// GoldenBIP39Passphrase is the BIP39 passphrase (wallet 25th word) used for the
+// passphrase vectors below. It is the BIP39 reference test-vector passphrase
+// ("TREZOR"), so a wrong derivation shows up against published vectors too.
+const GoldenBIP39Passphrase = "TREZOR"
+
+// Values captured from github.com/ZenTenApp/seedify v1.36.0 for FixedSeed00to1f
+// (GoldenMnemonic24) with GoldenBIP39Passphrase mixed into the BIP39 seed. The
+// mnemonic itself is unchanged: a passphrase changes the seed, not the words.
+const (
+	GoldenBIP39Bitcoin       = "bc1q5mckjx6f5ae3n4dz4fmlxtr0uhfe8mskld88dy"
+	GoldenBIP39Ethereum      = "0xf5E74A1283136330E3Bc545Faf99CD2463E3c9dD"
+	GoldenBIP39Tron          = "TNDw4h8WgSNd4a2VC2FT59fuPdwVDweS1v"
+	GoldenBIP39Solana        = "q2jxwueXEPPTgKZkNvFKA7t3hrXKjFFQWdFAZJg3gcb"
+	GoldenBIP39Litecoin      = "ltc1qp35sdcxsrhz5yrt7lpwf273haexvl9q7ve8cc7"
+	GoldenBIP39Dogecoin      = "DBS6YZo48uqiY8twBqjMat1YTWKa4HJnbS"
+	GoldenBIP39Cosmos        = "cosmos197qpdu5rxg9hzen97eyjczgvr3hz43u2z8c22f"
+	GoldenBIP39Ripple        = "rBC4G5XkYaomS9gcQaDo6RyKK1yQ2q9oUL"
+	GoldenBIP39Stellar       = "GAOUJJ3I4HELSVRCHSR6IR4JOOQ2DPHQM4W5FDFBZUFIHA7TTAKOQAY3"
+	GoldenBIP39Sui           = "0x549b9070ce7e06f9ced0b3bbd255a1b12436d03d5d2c99826ae6165dc967a015"
+	GoldenBIP39SilentPayment = "sp1qqwhuku44t7gxw5m0aw4sjy9luw88hd78yf37ykuhluj3pe8g6tu9vq34sa6acrzesas7s49y0ca4qluag4vqx5x39a042jwcep244apaguwlzkp4"
+	GoldenBIP39Npub          = "npub1ap8y76ptwrllgjsmhzxf26ljca73tgsqg6q3u9dzvwwdhkh9lw3qftfncn"
+	GoldenBIP39Nsec          = "nsec1xyqh58cwqslsx98s4y5h8ur3lsqgejpjhe47vstr6vqgv3vxr47spj0xkc"
+	GoldenBIP39PubHex        = "e84e4f682b70fff44a1bb88c956bf2c77d15a20046811e15a2639cdbdae5fba2"
+	GoldenBIP39PrivHex       = "31017a1f0e043f0314f0a92973f071fc008cc832be6be64163d3008645861d7d"
+	GoldenBIP39MFP           = "42c98ad5"
+	GoldenBIP39MultisigXpub  = "xpub6E2GczsS29SZhTuFb3gtLoA9MQ82XXMgos3vqWXEapLpLxJLxm61Bb3Ux4AH5pGdq2EG9xikD7HpFmA6y8k6oa6z55RguQV4euuGoG8p8wr"
+	GoldenBIP39MultisigZpub  = "Zpub74atMZwhtU5tpdSsCRj7b3gxR8TBd82GxMk3KZaYibvz5LViEUoQWqDgoB2ve4oNsmXrXVuz1ePR9Vzzhkj5YXareDvwUdb366JSAJm8cme"
+	// Cake Wallet / Unstoppable spend key of GoldenMnemonic24 at account 0 with
+	// GoldenBIP39Passphrase. Caveat: seedify v1.36.0 has no Cake derivation, so
+	// this value is pinned from meltify's own implementation rather than
+	// cross-verified.
+	GoldenBIP39CakeSpendKeyHex = "2513a9559e23e6255db8d41be604b74c5616b9e203c4247c51966b3066271806"
+	GoldenBIP39Cake25          = "foiled tugs dove cabin owls siren civilian seeded touchy lurk galaxy orders maps economics boldly building upbeat hotel potato vexed boxes athlete sadness seventh cabin"
+)

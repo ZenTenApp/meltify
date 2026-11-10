@@ -32,7 +32,7 @@ func TestCakePhraseFromFixedSeed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	phrase, err := cakePhraseFromMnemonic(mnemonic)
+	phrase, err := cakePhraseFromMnemonic(mnemonic, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,5 +91,38 @@ func TestLegacyAddressesMatchGolden(t *testing.T) {
 	}
 	if len(bdx.Subaddresses) < 1 || bdx.Subaddresses[0] != derive.GoldenBeldexLegacySub0 {
 		t.Errorf("beldex sub0 = %v, want %s", bdx.Subaddresses, derive.GoldenBeldexLegacySub0)
+	}
+}
+
+// TestCakePhraseWithBIP39Passphrase locks the one place a BIP39 passphrase
+// reaches a CryptoNote seed: the Unstoppable/Cake 25-word phrase. The CryptoNote
+// legacy seed comes from the Ed25519 seed directly, so it must not move.
+func TestCakePhraseWithBIP39Passphrase(t *testing.T) {
+	key := ed25519.NewKeyFromSeed(derive.FixedSeed00to1f)
+	mnemonic, err := derive.Mnemonic24(&key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	phrase, err := cakePhraseFromMnemonic(mnemonic, derive.GoldenBIP39Passphrase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if derive.GoldenBIP39Cake25 == "" {
+		t.Fatalf("fill GoldenBIP39Cake25 = %s", phrase)
+	}
+	if phrase != derive.GoldenBIP39Cake25 {
+		t.Errorf("cake 25-word = %s, want %s", phrase, derive.GoldenBIP39Cake25)
+	}
+	if phrase == derive.GoldenCake25 {
+		t.Fatal("passphrase did not change the Cake 25-word phrase")
+	}
+
+	legacy, err := legacySeedFromKey(&key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy != derive.GoldenLegacy25 {
+		t.Errorf("legacy 25-word = %s, want %s (not BIP39, must not move)", legacy, derive.GoldenLegacy25)
 	}
 }

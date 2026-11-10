@@ -38,7 +38,7 @@ func TestDeriveWalletAddresses(t *testing.T) {
 		t.Fatalf("Mnemonic24: %v", err)
 	}
 
-	w, chatID, err := deriveWalletAddresses(&key, mnemonic)
+	w, chatID, err := deriveWalletAddresses(&key, mnemonic, "")
 	if err != nil {
 		t.Fatalf("deriveWalletAddresses: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestPrintReportSectionOrder(t *testing.T) {
 	}
 
 	captured := captureStdout(func() {
-		if err := printReport(material); err != nil {
+		if err := printReport(material, ""); err != nil {
 			t.Errorf("printReport: %v", err)
 		}
 	})
@@ -218,4 +218,104 @@ func captureStdout(fn func()) string {
 	_, _ = io.Copy(&buf, r)
 	_ = r.Close()
 	return buf.String()
+}
+
+// TestDeriveWalletAddressesWithPassphrase locks the passphrase path for the full
+// chain list: BIP39 chains move, the CryptoNote legacy phrase and BChat chat ID
+// (which are not BIP39) stay put.
+func TestDeriveWalletAddressesWithPassphrase(t *testing.T) {
+	key := ed25519.NewKeyFromSeed(derive.FixedSeed00to1f)
+
+	mnemonic, err := derive.Mnemonic24(&key)
+	if err != nil {
+		t.Fatalf("Mnemonic24: %v", err)
+	}
+
+	w, chatID, err := deriveWalletAddresses(&key, mnemonic, derive.GoldenBIP39Passphrase)
+	if err != nil {
+		t.Fatalf("deriveWalletAddresses: %v", err)
+	}
+
+	got := map[string]string{}
+	for _, row := range w {
+		got[row.label] = row.addr
+	}
+
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"bitcoin", derive.GoldenBIP39Bitcoin},
+		{"ethereum", derive.GoldenBIP39Ethereum},
+		{"arbitrum", derive.GoldenBIP39Ethereum},
+		{"solana", derive.GoldenBIP39Solana},
+		{"tron", derive.GoldenBIP39Tron},
+		{"litecoin", derive.GoldenBIP39Litecoin},
+		{"dogecoin", derive.GoldenBIP39Dogecoin},
+		{"cosmos", derive.GoldenBIP39Cosmos},
+		{"xrpl", derive.GoldenBIP39Ripple},
+		{"stellar", derive.GoldenBIP39Stellar},
+		{"sui", derive.GoldenBIP39Sui},
+		{"silentpayment", derive.GoldenBIP39SilentPayment},
+		// Not BIP39: the CryptoNote legacy phrase is reduced straight from the
+		// Ed25519 seed, so a BIP39 passphrase cannot move these.
+		{"monero", derive.GoldenMoneroLegacyPrimary},
+		{"beldex", derive.GoldenBeldexLegacyPrimary},
+	}
+	for _, tt := range tests {
+		if got[tt.name] != tt.want {
+			t.Errorf("%s = %s, want %s", tt.name, got[tt.name], tt.want)
+		}
+	}
+	if chatID != goldenBchat(t) {
+		t.Errorf("bchat = %s, want %s (not BIP39, must not move)", chatID, goldenBchat(t))
+	}
+}
+
+// TestPrintReportPrintsBIP39Passphrase locks that a passphrase run prints the
+// passphrase once, after the seed phrase it belongs to, and that a run without
+// one prints no such block.
+func TestPrintReportPrintsBIP39Passphrase(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+
+	key := ed25519.NewKeyFromSeed(derive.FixedSeed00to1f)
+	block, err := ssh.MarshalPrivateKey(key, "")
+	if err != nil {
+		t.Fatalf("MarshalPrivateKey: %v", err)
+	}
+	material := &sshkey.Material{
+		Key:           &key,
+		PrivateKeyPEM: pem.EncodeToMemory(block),
+	}
+
+	withPass := captureStdout(func() {
+		if printErr := printReport(material, derive.GoldenBIP39Passphrase); printErr != nil {
+			t.Errorf("printReport: %v", printErr)
+		}
+	})
+
+	phraseEnd := strings.Index(withPass, "=====END 24-WORD SEED PHRASE")
+	passIdx := strings.Index(withPass, "BEGIN BIP39 PASSPHRASE (WALLET 25TH WORD)")
+	nsecIdx := strings.Index(withPass, "nSecKey / hexSecKey")
+	if passIdx < 0 {
+		t.Fatalf("passphrase block missing:\n%s", withPass)
+	}
+	if !(phraseEnd < passIdx && passIdx < nsecIdx) {
+		t.Errorf("passphrase block not between the seed phrase and the nsec: %d %d %d", phraseEnd, passIdx, nsecIdx)
+	}
+	if strings.Count(withPass, derive.GoldenBIP39Passphrase) != 1 {
+		t.Errorf("passphrase printed %d times, want 1", strings.Count(withPass, derive.GoldenBIP39Passphrase))
+	}
+	if !strings.Contains(withPass, "bitcoin:"+derive.GoldenBIP39Bitcoin) {
+		t.Error("bitcoin address is not the passphrase-derived one")
+	}
+
+	without := captureStdout(func() {
+		if printErr := printReport(material, ""); printErr != nil {
+			t.Errorf("printReport: %v", printErr)
+		}
+	})
+	if strings.Contains(without, "BIP39 PASSPHRASE") {
+		t.Error("passphrase block printed without a passphrase")
+	}
 }

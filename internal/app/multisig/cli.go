@@ -33,13 +33,14 @@ const (
 
 // options holds the parsed CLI state for one run.
 type options struct {
-	keyPath    string
-	subaccount string
-	label      string
-	scriptType string
-	slip132    bool
-	required   int
-	cosigners  []string
+	keyPath         string
+	subaccount      string
+	bip39Passphrase string
+	label           string
+	scriptType      string
+	slip132         bool
+	required        int
+	cosigners       []string
 }
 
 // Execute runs the meltify-multisig CLI.
@@ -82,6 +83,12 @@ reports the combined M of N and emits a descriptor with every key. Descriptor
 keys keep the supplied order, because sortedmulti sorts derived public keys at
 derivation time rather than in the descriptor text.
 
+--bip39-passphrase sets the BIP39 passphrase (the wallet 25th word) mixed into
+the master seed. It changes the master fingerprint, the account xpub, the
+descriptor, and the default Label together, and is printed as its own secret
+block after the policy block so an import can be reproduced. The 24-word MELT
+phrase itself does not change, because it is derived from the Ed25519 seed.
+
 The default Label is npub followed by the first four hex characters of this
 key's Nostr public key (npub7a8d, for example), because wallets such as
 Sparrow cap keystore labels at 16 characters. The OpenSSH private key must be
@@ -94,7 +101,8 @@ After the policy block the first 10 receive (external chain) and 10 change
 		Example: `  meltify-multisig ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | meltify-multisig
   meltify-multisig ~/.ssh/id_ed25519 --script-type nested --label cold
-  meltify-multisig ~/.ssh/id_ed25519 -m 2 --cosigner-xpub xpub6... --cosigner-xpub xpub6...`,
+  meltify-multisig ~/.ssh/id_ed25519 -m 2 --cosigner-xpub xpub6... --cosigner-xpub xpub6...
+  meltify-multisig ~/.ssh/id_ed25519 --bip39-passphrase "correct horse battery staple"`,
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -109,6 +117,9 @@ After the policy block the first 10 receive (external chain) and 10 change
 			if len(args) > 0 {
 				opts.keyPath = args[0]
 			}
+			if err := cliutil.ValidateBIP39Passphrase(cmd, opts.bip39Passphrase); err != nil {
+				return err //nolint:wrapcheck // Message already names the flag; wrapping would repeat it.
+			}
 			return runWithOptions(opts, stdin)
 		},
 	}
@@ -119,6 +130,7 @@ After the policy block the first 10 receive (external chain) and 10 change
 	rootCmd.Flags().BoolVar(&opts.slip132, "slip132", false, "Print the SLIP-0132 account key (ypub/zpub) instead of the standard xpub")
 	rootCmd.Flags().IntVarP(&opts.required, "required", "m", 1, "Required signatures (the m of the m-of-n policy)")
 	rootCmd.Flags().StringArrayVar(&opts.cosigners, "cosigner-xpub", nil, "Additional cosigner account xpub; repeat once per cosigner")
+	cliutil.AddBIP39PassphraseFlag(rootCmd, &opts.bip39Passphrase)
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
 	rootCmd.AddCommand(cliutil.NewCompletionCommand(rootCmd, binaryName))
 	return rootCmd
@@ -151,7 +163,7 @@ func runWithOptions(opts *options, stdin io.Reader) error {
 		return fmt.Errorf("could not generate 24-word MELT mnemonic: %w", err)
 	}
 
-	label, err := keystoreLabel(opts.label, mnemonic)
+	label, err := keystoreLabel(opts.label, mnemonic, opts.bip39Passphrase)
 	if err != nil {
 		return err
 	}
@@ -169,12 +181,12 @@ func runWithOptions(opts *options, stdin io.Reader) error {
 
 // keystoreLabel resolves the block label, defaulting to the key's Nostr
 // identity fingerprint so the block fits Sparrow's 16-character label limit.
-func keystoreLabel(flagValue, mnemonic string) (string, error) {
+func keystoreLabel(flagValue, mnemonic, bip39Passphrase string) (string, error) {
 	if trimmed := strings.TrimSpace(flagValue); trimmed != "" {
 		return trimmed, nil
 	}
 
-	nostrKeys, err := derive.NostrKeysFromMnemonic(mnemonic, "")
+	nostrKeys, err := derive.NostrKeysFromMnemonic(mnemonic, bip39Passphrase)
 	if err != nil {
 		return "", fmt.Errorf("could not derive Nostr npub for the default label: %w", err)
 	}
@@ -195,7 +207,7 @@ func npubFingerprintLabel(pubKeyHex string) string {
 // multisigAddresses derives the receive and change addresses for the complete
 // policy: this key plus every --cosigner-xpub.
 func multisigAddresses(mnemonic string, scriptType derive.BitcoinMultisigScriptType, opts *options) (*derive.BitcoinMultisigAddressSet, error) {
-	accountKeys, err := derive.BitcoinMultisigAccount(mnemonic, "", scriptType)
+	accountKeys, err := derive.BitcoinMultisigAccount(mnemonic, opts.bip39Passphrase, scriptType)
 	if err != nil {
 		return nil, fmt.Errorf("could not derive BIP48 account keys: %w", err)
 	}
@@ -237,12 +249,12 @@ func printPolicyBlock(mnemonic string, scriptType derive.BitcoinMultisigScriptTy
 		return fmt.Errorf("--required must be at least 1, got %d", opts.required)
 	}
 
-	fingerprint, err := derive.BitcoinMasterFingerprint(mnemonic, "")
+	fingerprint, err := derive.BitcoinMasterFingerprint(mnemonic, opts.bip39Passphrase)
 	if err != nil {
 		return fmt.Errorf("could not derive master fingerprint: %w", err)
 	}
 
-	keys, err := derive.BitcoinMultisigAccount(mnemonic, "", scriptType)
+	keys, err := derive.BitcoinMultisigAccount(mnemonic, opts.bip39Passphrase, scriptType)
 	if err != nil {
 		return fmt.Errorf("could not derive BIP48 account keys: %w", err)
 	}
@@ -271,6 +283,12 @@ func printPolicyBlock(mnemonic string, scriptType derive.BitcoinMultisigScriptTy
 		{Text: "Derivation: " + scriptType.DerivationPath()},
 		{Text: "xpub: " + displayedKey},
 	})
+	// The passphrase stays outside the ===== BITCOIN ===== markers so the block
+	// is still a valid wallet import.
+	if opts.bip39Passphrase != "" {
+		out.Blank()
+		cliutil.PrintBIP39Passphrase(out, opts.bip39Passphrase)
+	}
 	return nil
 }
 

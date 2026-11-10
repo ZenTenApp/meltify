@@ -80,6 +80,15 @@ func (k *BitChatKeys) PeerIDHex() string {
 // Security note: the derived identity is cryptographically linked to the source
 // SSH key. Compromising either key compromises both.
 func BitChat(key *ed25519.PrivateKey) (*BitChatKeys, error) {
+	return BitChatWithPassphrase(key, "")
+}
+
+// BitChatWithPassphrase derives a BitChat identity like BitChat, but with a
+// BIP39 passphrase (wallet 25th word) mixed into the NIP-06 Nostr keys. The
+// noise, signing, and device secrets come from the raw Ed25519 seed and are
+// unaffected, so only the Nostr slice changes: pass the same passphrase as
+// meltify-info to keep one nsec across both commands.
+func BitChatWithPassphrase(key *ed25519.PrivateKey, bip39Passphrase string) (*BitChatKeys, error) {
 	if key == nil {
 		return nil, errors.New("ed25519 key is required")
 	}
@@ -106,7 +115,7 @@ func BitChat(key *ed25519.PrivateKey) (*BitChatKeys, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bitchat: could not generate 24-word MELT mnemonic: %w", err)
 	}
-	nostrKeys, err := NostrKeysFromMnemonic(mnemonic24, "")
+	nostrKeys, err := NostrKeysFromMnemonic(mnemonic24, bip39Passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("bitchat: could not derive Nostr keys: %w", err)
 	}

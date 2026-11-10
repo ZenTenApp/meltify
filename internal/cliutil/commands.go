@@ -4,6 +4,7 @@ package cliutil
 import (
 	"fmt"
 
+	"github.com/ZenTenApp/meltify/internal/termout"
 	mcobra "github.com/muesli/mango-cobra"
 	"github.com/muesli/roff"
 	"github.com/spf13/cobra"
@@ -102,4 +103,37 @@ PowerShell:
 			}
 		},
 	}
+}
+
+// BIP39PassphraseFlag is the flag name every mnemonic-consuming CLI registers
+// for the BIP39 passphrase (the wallet "25th word").
+const BIP39PassphraseFlag = "bip39-passphrase"
+
+// AddBIP39PassphraseFlag registers --bip39-passphrase on cmd, storing its value
+// in target. The BIP39 passphrase changes every key derived from the printed
+// seed phrase, so the phrase alone no longer restores the same wallet.
+func AddBIP39PassphraseFlag(cmd *cobra.Command, target *string) {
+	cmd.Flags().StringVar(target, BIP39PassphraseFlag, "",
+		"BIP39 passphrase (wallet 25th word) mixed into every derived key; the printed seed phrase stays the same (visible in process arguments)")
+}
+
+// ValidateBIP39Passphrase rejects an explicitly empty --bip39-passphrase, so a
+// typo cannot silently mean "use no passphrase".
+func ValidateBIP39Passphrase(cmd *cobra.Command, value string) error {
+	if cmd.Flags().Changed(BIP39PassphraseFlag) && value == "" {
+		return fmt.Errorf("--%s cannot be empty; omit the flag to derive without a passphrase", BIP39PassphraseFlag)
+	}
+	return nil
+}
+
+// PrintBIP39Passphrase prints the BIP39 passphrase as its own secret block, then
+// a blank line pair, when one is set. An export that hides the passphrase is not
+// restorable from its seed phrase alone, so it is printed like every other
+// secret. A run without a passphrase prints nothing.
+func PrintBIP39Passphrase(out *termout.CLIOut, bip39Passphrase string) {
+	if bip39Passphrase == "" {
+		return
+	}
+	out.Block("BIP39 PASSPHRASE (WALLET 25TH WORD)", bip39Passphrase, true)
+	out.BlankPair()
 }

@@ -2,6 +2,7 @@ package derive
 
 import (
 	"crypto/ed25519"
+	"encoding/hex"
 	"testing"
 	"time"
 )
@@ -159,5 +160,124 @@ func assertEq(t *testing.T, name, got, want string) {
 	t.Helper()
 	if got != want {
 		t.Errorf("%s = %q, want %q", name, got, want)
+	}
+}
+
+// TestBIP39PassphraseVectorsMatchSeedify locks the passphrase path against
+// github.com/ZenTenApp/seedify v1.36.0 for the same seed and passphrase. A
+// regression here means a wallet restored from the printed phrase plus
+// passphrase would land on different addresses.
+func TestBIP39PassphraseVectorsMatchSeedify(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		fn   func(string, string) (string, error)
+		want string
+	}{
+		{"bitcoin", BitcoinNativeSegwit, GoldenBIP39Bitcoin},
+		{"ethereum", Ethereum, GoldenBIP39Ethereum},
+		{"tron", Tron, GoldenBIP39Tron},
+		{"solana", Solana, GoldenBIP39Solana},
+		{"litecoin", Litecoin, GoldenBIP39Litecoin},
+		{"dogecoin", Dogecoin, GoldenBIP39Dogecoin},
+		{"cosmos", Cosmos, GoldenBIP39Cosmos},
+		{"ripple", Ripple, GoldenBIP39Ripple},
+		{"stellar", Stellar, GoldenBIP39Stellar},
+		{"sui", Sui, GoldenBIP39Sui},
+		{"silentpayment", SilentPayment, GoldenBIP39SilentPayment},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := tt.fn(GoldenMnemonic24, GoldenBIP39Passphrase)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertEq(t, tt.name, got, tt.want)
+		})
+	}
+
+	t.Run("nostr", func(t *testing.T) {
+		t.Parallel()
+		keys, err := NostrKeysFromMnemonic(GoldenMnemonic24, GoldenBIP39Passphrase)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertEq(t, "npub", keys.Npub, GoldenBIP39Npub)
+		assertEq(t, "nsec", keys.Nsec, GoldenBIP39Nsec)
+		assertEq(t, "pubkey hex", keys.PubKeyHex, GoldenBIP39PubHex)
+		assertEq(t, "privkey hex", keys.PrivKeyHex, GoldenBIP39PrivHex)
+	})
+
+	t.Run("multisig", func(t *testing.T) {
+		t.Parallel()
+		fingerprint, err := BitcoinMasterFingerprint(GoldenMnemonic24, GoldenBIP39Passphrase)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertEq(t, "master fingerprint", fingerprint, GoldenBIP39MFP)
+
+		keys, err := BitcoinMultisigAccount(GoldenMnemonic24, GoldenBIP39Passphrase, BitcoinMultisigNativeSegwitP2WSH)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertEq(t, "xpub", keys.StandardPublicKey, GoldenBIP39MultisigXpub)
+		assertEq(t, "zpub", keys.ExtendedPublicKey, GoldenBIP39MultisigZpub)
+	})
+
+	t.Run("cake", func(t *testing.T) {
+		t.Parallel()
+		spend, err := CakeSpendKey(GoldenMnemonic24, GoldenBIP39Passphrase, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if GoldenBIP39CakeSpendKeyHex == "" {
+			t.Fatalf("fill GoldenBIP39CakeSpendKeyHex = %s", hex.EncodeToString(spend))
+		}
+		assertEq(t, "cake spend key", hex.EncodeToString(spend), GoldenBIP39CakeSpendKeyHex)
+	})
+}
+
+// TestBIP39PassphraseChangesDerivedKeys asserts the passphrase is actually
+// mixed into the seed: every BIP39-derived value must differ from the
+// no-passphrase value, while the printed mnemonic stays the same.
+func TestBIP39PassphraseChangesDerivedKeys(t *testing.T) {
+	t.Parallel()
+
+	key := fixedKey()
+	mnemonic, err := Mnemonic24(&key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "mnemonic", mnemonic, GoldenMnemonic24)
+
+	pairs := []struct {
+		name      string
+		fn        func(string, string) (string, error)
+		plainWant string
+		passWant  string
+	}{
+		{"bitcoin", BitcoinNativeSegwit, GoldenBitcoin, GoldenBIP39Bitcoin},
+		{"ethereum", Ethereum, GoldenEthereum, GoldenBIP39Ethereum},
+		{"solana", Solana, GoldenSolana, GoldenBIP39Solana},
+	}
+	for _, tt := range pairs {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			plain, err := tt.fn(mnemonic, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			withPass, err := tt.fn(mnemonic, GoldenBIP39Passphrase)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertEq(t, "no passphrase", plain, tt.plainWant)
+			assertEq(t, "with passphrase", withPass, tt.passWant)
+			if plain == withPass {
+				t.Fatal("passphrase did not change the derived key")
+			}
+		})
 	}
 }

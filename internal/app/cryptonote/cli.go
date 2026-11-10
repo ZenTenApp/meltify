@@ -104,7 +104,7 @@ func Execute(args []string, stdin io.Reader, info cliutil.VersionInfo, coin Coin
 }
 
 func newRootCommand(stdin io.Reader, info cliutil.VersionInfo, coin CoinConfig) *cobra.Command {
-	var subaccount string
+	var subaccount, bip39Passphrase string
 
 	long := fmt.Sprintf(`%[1]s derives a deterministic %[2]s seed and addresses from an Ed25519 OpenSSH private key.
 
@@ -112,6 +112,17 @@ The OpenSSH private key must be password-protected; %[1]s prompts for that passp
 	example := fmt.Sprintf(`  %[1]s ~/.ssh/id_ed25519
   cat ~/.ssh/id_ed25519 | %[1]s
   %[1]s ~/.ssh/id_ed25519 --subaccount subaccount-label`, coin.BinaryName)
+	if coin.MergeCake {
+		long += `
+
+--bip39-passphrase sets the BIP39 passphrase (the wallet 25th word) of the
+Unstoppable/Cake section only: the 25-word Cake seed and its addresses change,
+and the passphrase is printed as its own secret block after the seed. The
+CryptoNote legacy seed and addresses come from the Ed25519 seed directly, not
+from BIP39, so they are unaffected.`
+		example += fmt.Sprintf(`
+  %[1]s ~/.ssh/id_ed25519 --bip39-passphrase "correct horse battery staple"`, coin.BinaryName)
+	}
 
 	rootCmd := &cobra.Command{
 		Use:          coin.BinaryName + " [key-path]",
@@ -132,26 +143,35 @@ The OpenSSH private key must be password-protected; %[1]s prompts for that passp
 			if len(args) > 0 {
 				keyPath = args[0]
 			}
-			return runWithOptions(keyPath, subaccount, stdin, coin)
+			if err := cliutil.ValidateBIP39Passphrase(cmd, bip39Passphrase); err != nil {
+				return err //nolint:wrapcheck // Message already names the flag; wrapping would repeat it.
+			}
+			return runWithOptions(keyPath, subaccount, bip39Passphrase, stdin, coin)
 		},
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
+	if coin.MergeCake {
+		// Only the merged Monero output has a BIP39 (Cake/Unstoppable) section;
+		// the CryptoNote legacy seed is not BIP39, so the flag means nothing for
+		// a coin without one.
+		cliutil.AddBIP39PassphraseFlag(rootCmd, &bip39Passphrase)
+	}
 	rootCmd.AddCommand(cliutil.NewManCommand(rootCmd))
 	rootCmd.AddCommand(cliutil.NewCompletionCommand(rootCmd, coin.BinaryName))
 	return rootCmd
 }
 
-func runWithOptions(keyPath, subaccount string, stdin io.Reader, coin CoinConfig) error {
+func runWithOptions(keyPath, subaccount, bip39Passphrase string, stdin io.Reader, coin CoinConfig) error {
 	seed, err := meltifyexec.ExtractSeed(keyPath, subaccount, stdin)
 	if err != nil {
 		return fmt.Errorf("could not extract key material with meltify: %w", err)
 	}
 	key := ed25519.NewKeyFromSeed(seed)
-	return printCoinOutput(&key, coin)
+	return printCoinOutput(&key, coin, bip39Passphrase)
 }
 
-func cakePhraseFromMnemonic(mnemonic string) (string, error) {
-	spend, err := derive.CakeSpendKey(mnemonic, "", 0)
+func cakePhraseFromMnemonic(mnemonic, bip39Passphrase string) (string, error) {
+	spend, err := derive.CakeSpendKey(mnemonic, bip39Passphrase, 0)
 	if err != nil {
 		return "", fmt.Errorf("could not derive cake wallet spend key: %w", err)
 	}
@@ -162,9 +182,9 @@ func cakePhraseFromMnemonic(mnemonic string) (string, error) {
 	return phrase, nil
 }
 
-func printCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
+func printCoinOutput(key *ed25519.PrivateKey, coin CoinConfig, bip39Passphrase string) error {
 	if coin.MergeCake {
-		return printMergedCoinOutput(key, coin)
+		return printMergedCoinOutput(key, coin, bip39Passphrase)
 	}
 
 	seed, err := legacySeedFromKey(key)
@@ -211,7 +231,7 @@ const (
 // Unstoppable/Cake section in one output, separated by an asterisk divider.
 // It is used by meltify-monero only; meltify-beldex keeps the single-section
 // layout.
-func printMergedCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
+func printMergedCoinOutput(key *ed25519.PrivateKey, coin CoinConfig, bip39Passphrase string) error {
 	legacySeed, err := legacySeedFromKey(key)
 	if err != nil {
 		return fmt.Errorf("failed to derive %s seed: %w", coin.DisplayName, err)
@@ -225,7 +245,7 @@ func printMergedCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
 	if err != nil {
 		return fmt.Errorf("could not generate 24-word mnemonic: %w", err)
 	}
-	cakePhrase, err := cakePhraseFromMnemonic(mnemonic24)
+	cakePhrase, err := cakePhraseFromMnemonic(mnemonic24, bip39Passphrase)
 	if err != nil {
 		return err
 	}
@@ -259,6 +279,7 @@ func printMergedCoinOutput(key *ed25519.PrivateKey, coin CoinConfig) error {
 		moneroMergedSeedEndLabel,
 	)
 	out.BlankPair()
+	cliutil.PrintBIP39Passphrase(out, bip39Passphrase)
 	out.Block("MONERO PRIMARY ADDRESS (CAKE WALLET)", cakeAddresses.PrimaryAddress, false)
 	if len(cakeAddresses.Subaddresses) > 0 {
 		out.BlankPair()

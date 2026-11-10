@@ -14,14 +14,14 @@ import (
 
 func TestPrintReportRejectsNil(t *testing.T) {
 	t.Parallel()
-	if err := printReport(nil); err == nil {
+	if err := printReport(nil, ""); err == nil {
 		t.Fatal("nil keys succeeded")
 	}
 }
 
 func TestPrintReportRejectsMissingNostr(t *testing.T) {
 	t.Parallel()
-	if err := printReport(&derive.BitChatKeys{}); err == nil {
+	if err := printReport(&derive.BitChatKeys{}, ""); err == nil {
 		t.Fatal("keys without a Nostr slice succeeded")
 	}
 }
@@ -34,7 +34,7 @@ func TestPrintReportMatchesIdentity(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if printErr := printReport(keys); printErr != nil {
+		if printErr := printReport(keys, ""); printErr != nil {
 			t.Errorf("printReport: %v", printErr)
 		}
 	})
@@ -108,7 +108,7 @@ func TestPrintReportCompactLine(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if printErr := printReport(keys); printErr != nil {
+		if printErr := printReport(keys, ""); printErr != nil {
 			t.Errorf("printReport: %v", printErr)
 		}
 	})
@@ -149,4 +149,44 @@ func captureStdout(t *testing.T, fn func()) string {
 		t.Fatalf("read pipe: %v", readErr)
 	}
 	return string(data)
+}
+
+// TestBitChatWithPassphrase locks that a BIP39 passphrase moves only the NIP-06
+// Nostr slice: the noise, signing, and device secrets come from the raw Ed25519
+// seed, so the mesh peer ID cannot change.
+func TestBitChatWithPassphrase(t *testing.T) {
+	t.Parallel()
+
+	key := ed25519.NewKeyFromSeed(derive.FixedSeed00to1f)
+
+	plain, err := derive.BitChat(&key)
+	if err != nil {
+		t.Fatalf("BitChat: %v", err)
+	}
+	withPass, err := derive.BitChatWithPassphrase(&key, derive.GoldenBIP39Passphrase)
+	if err != nil {
+		t.Fatalf("BitChatWithPassphrase: %v", err)
+	}
+
+	if withPass.Nostr.Nsec != derive.GoldenBIP39Nsec {
+		t.Errorf("nsec = %s, want %s", withPass.Nostr.Nsec, derive.GoldenBIP39Nsec)
+	}
+	if withPass.Nostr.Nsec == plain.Nostr.Nsec {
+		t.Error("passphrase did not change the Nostr key")
+	}
+	if withPass.PeerIDHex() != plain.PeerIDHex() {
+		t.Errorf("peer ID moved with the passphrase: %s != %s", withPass.PeerIDHex(), plain.PeerIDHex())
+	}
+	if hex.EncodeToString(withPass.NoisePrivateKey) != hex.EncodeToString(plain.NoisePrivateKey) {
+		t.Error("noise static key moved with the passphrase")
+	}
+
+	out := captureStdout(t, func() {
+		if printErr := printReport(withPass, derive.GoldenBIP39Passphrase); printErr != nil {
+			t.Errorf("printReport: %v", printErr)
+		}
+	})
+	if !strings.Contains(out, "BEGIN BIP39 PASSPHRASE (WALLET 25TH WORD)") {
+		t.Errorf("passphrase block missing:\n%s", out)
+	}
 }

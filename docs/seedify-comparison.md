@@ -23,6 +23,7 @@ Seedify is one CLI with many flags. Meltify is a family of sibling binaries (`cm
 | `--to-wireguard` | `meltify-wireguard` (wg base64 static keypair on stdout) |
 | `--to-jks` | `meltify-jks` (`--alias` / `--output` / `--dn` / `--validity` / `--store-password` / `--key-password`; writes a `.jks`) |
 | BIP48 1-of-1 multisig extended keys + address | `meltify-multisig` (`--script-type` / `--slip132` / `--label`) |
+| `--bip39-passphrase` | `meltify-info` / `meltify-multisig` / `meltify-bitchat` / `meltify-monero` (Cake section) |
 
 `meltify-info` prints native SegWit BTC, BCH, ETH + EVM aliases, SOL, TRX, LTC, DOGE, ATOM, XRP, XLM, SUI, TON V4R2, silent payments, Monero and Beldex legacy primaries, plus BChat.
 
@@ -76,12 +77,13 @@ Meltify-info only prints native SegWit `bc1q`. Seedify `--btc` also emits:
 
 - BIP39 lengths **12 / 15 / 18 / 21** (`--words`) — meltify only does 24 + polyseed 16
 - `--language` / `-l` (non-English BIP39)
-- `--bip39-passphrase` (wallet 25th word; not the same as brain-bunker)
 - `ToMnemonicWithPrefix` domain separation
 - Feather `--xmr-seed-offset` — `applyMoneroSeedOffset` exists in `internal/derive/cryptonote.go` but every public API passes `""`
 - RSA **source** keys (`DeriveEd25519KeyFromRSA`) — meltify is Ed25519-only
 - `seedify brave-sync-25th --date` standalone command (library exists; only `meltify-brave` uses “today”)
 - `~/.seedify.ini` color overrides (`--config`)
+
+`--bip39-passphrase` (wallet 25th word) was on this list and is now implemented: see the README section "BIP39 passphrase".
 
 ## Suggested next ports
 

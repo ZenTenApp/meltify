@@ -107,13 +107,16 @@ PowerShell:
 
 // BIP39PassphraseFlag is the flag name every mnemonic-consuming CLI registers
 // for the BIP39 passphrase (the wallet "25th word").
-const BIP39PassphraseFlag = "bip39-passphrase"
+const (
+	BIP39PassphraseFlag      = "bip39-passphrase"
+	BIP39PassphraseShorthand = "e"
+)
 
-// AddBIP39PassphraseFlag registers --bip39-passphrase on cmd, storing its value
-// in target. The BIP39 passphrase changes every key derived from the printed
-// seed phrase, so the phrase alone no longer restores the same wallet.
+// AddBIP39PassphraseFlag registers --bip39-passphrase / -e on cmd, storing its
+// value in target. The BIP39 passphrase changes every key derived from the
+// printed seed phrase, so the phrase alone no longer restores the same wallet.
 func AddBIP39PassphraseFlag(cmd *cobra.Command, target *string) {
-	cmd.Flags().StringVar(target, BIP39PassphraseFlag, "",
+	cmd.Flags().StringVarP(target, BIP39PassphraseFlag, BIP39PassphraseShorthand, "",
 		"BIP39 passphrase (wallet 25th word) mixed into every derived key; the printed seed phrase stays the same (visible in process arguments)")
 }
 

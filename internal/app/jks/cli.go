@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/ZenTenApp/meltify/internal/cliutil"
 	"github.com/ZenTenApp/meltify/internal/derive"
@@ -22,6 +24,47 @@ const (
 	binaryName   = "meltify-jks"
 	keystoreMode = 0o600
 )
+
+// keystoreFormat is the keystore container meltify-jks writes.
+type keystoreFormat int
+
+const (
+	// formatJKS writes a Java KeyStore (.jks), which supports separate store and
+	// key passwords.
+	formatJKS keystoreFormat = iota
+
+	// formatPKCS12 writes a PKCS#12 keystore (.p12/.pfx), which has a single
+	// password for the store and its key entry.
+	formatPKCS12
+)
+
+// label is the human-readable name of the format.
+func (f keystoreFormat) label() string {
+	if f == formatPKCS12 {
+		return "PKCS#12"
+	}
+	return "JKS"
+}
+
+// keytoolListCommand is the keytool invocation that lists the keystore entries.
+func (f keystoreFormat) keytoolListCommand(path string) string {
+	if f == formatPKCS12 {
+		return "keytool -list -storetype PKCS12 -keystore " + path
+	}
+	return "keytool -list -keystore " + path
+}
+
+// formatForOutputPath infers the keystore format from the --output extension.
+// PKCS#12 keystores are written for .p12, .pfx, and .pkcs12 paths; every other
+// path yields a Java KeyStore.
+func formatForOutputPath(path string) keystoreFormat {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".p12", ".pfx", ".pkcs12":
+		return formatPKCS12
+	default:
+		return formatJKS
+	}
+}
 
 // Execute runs the meltify-jks CLI.
 func Execute(args []string, stdin io.Reader, info cliutil.VersionInfo) error {
@@ -45,10 +88,14 @@ func newRootCommand(stdin io.Reader, info cliutil.VersionInfo) *cobra.Command {
 
 	rootCmd := &cobra.Command{
 		Use:   binaryName + " [key-path]",
-		Short: "Export a deterministic Java KeyStore (.jks) from an Ed25519 OpenSSH key",
+		Short: "Export a deterministic Java KeyStore or PKCS#12 keystore from an Ed25519 OpenSSH key",
 		Long: `meltify-jks derives a deterministic RSA private key and self-signed X.509
 certificate from an Ed25519 OpenSSH private key, then writes a password-protected
-Java KeyStore (.jks) file suitable for Android app signing.
+keystore file suitable for Android app signing.
+
+The keystore format follows the --output extension: .p12, .pfx, and .pkcs12
+write a PKCS#12 keystore, and any other path writes a Java KeyStore (.jks). Both
+formats are accepted by Android Gradle Plugin signing configs.
 
 The keystore is written to --output (0600). The stdout report lists the CI/CD
 secrets (keystore base64, alias, store password, key password) so they can be
@@ -57,13 +104,15 @@ pasted into a signing pipeline.
 The OpenSSH private key must be password-protected; meltify-jks prompts for that
 passphrase. The keystore is always password-protected: enter a new passphrase, or
 pass --reuse-passphrase to reuse the SSH key passphrase. Alternatively, supply
---store-password. The key entry uses the store password unless --key-password is
-provided. Password flags may be visible in shell history and process listings.
-Use --subaccount to derive a deterministic subaccount key first.`,
+--store-password. In a Java KeyStore the key entry uses the store password unless
+--key-password is provided; PKCS#12 has a single password, so --key-password is
+rejected there. Password flags may be visible in shell history and process
+listings. Use --subaccount to derive a deterministic subaccount key first.`,
 		Example: `  meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks
   meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --dn "CN=Zenten, OU=Mobile, O=ZenTen"
   meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --bits 2048 --validity 10000
-  meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --reuse-passphrase`,
+  meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --reuse-passphrase
+  meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.p12`,
 		Version:      info.String(),
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -73,6 +122,9 @@ Use --subaccount to derive a deterministic subaccount key first.`,
 			}
 			if cmd.Flags().Changed("key-password") && keyPassword == "" {
 				return errors.New("--key-password cannot be empty")
+			}
+			if cmd.Flags().Changed("key-password") && formatForOutputPath(output) == formatPKCS12 {
+				return errors.New("--key-password is not supported for PKCS#12 keystores: PKCS#12 uses a single password for the keystore and its key entry")
 			}
 			if len(args) == 0 && stdin == os.Stdin {
 				if fi, statErr := os.Stdin.Stat(); statErr == nil && (fi.Mode()&os.ModeNamedPipe) == 0 {
@@ -89,13 +141,13 @@ Use --subaccount to derive a deterministic subaccount key first.`,
 	}
 	rootCmd.Flags().StringVarP(&subaccount, "subaccount", "s", "", "Derive a deterministic subaccount key from the source key and an arbitrary subaccount label")
 	rootCmd.Flags().StringVar(&alias, "alias", "", "Keystore entry alias, e.g. zenten")
-	rootCmd.Flags().StringVar(&output, "output", "", "Write the Java KeyStore (.jks) to this path (0600)")
+	rootCmd.Flags().StringVar(&output, "output", "", "Write the keystore to this path (0600); .p12/.pfx/.pkcs12 write PKCS#12, anything else writes a Java KeyStore")
 	rootCmd.Flags().StringVar(&dn, "dn", "", `Certificate distinguished name, e.g. "CN=Zenten, OU=Mobile" (default: CN=<alias>)`)
 	rootCmd.Flags().IntVar(&bits, "bits", derive.DefaultRSABits, "RSA key size in bits (2048, 3072, or 4096)")
 	rootCmd.Flags().IntVar(&validity, "validity", derive.DefaultJKSValidityDays, "Self-signed certificate validity in days")
 	rootCmd.Flags().BoolVar(&reusePassphrase, "reuse-passphrase", false, "Reuse the source SSH key passphrase to protect the keystore; requires a password-protected source key")
 	rootCmd.Flags().StringVar(&storePassword, "store-password", "", "Keystore password (default: prompt or --reuse-passphrase; visible in process arguments)")
-	rootCmd.Flags().StringVar(&keyPassword, "key-password", "", "Private key entry password (default: store password; visible in process arguments)")
+	rootCmd.Flags().StringVar(&keyPassword, "key-password", "", "Private key entry password for Java KeyStore output (default: store password; rejected for PKCS#12; visible in process arguments)")
 	rootCmd.MarkFlagsMutuallyExclusive("store-password", "reuse-passphrase")
 	_ = rootCmd.MarkFlagRequired("alias")
 	_ = rootCmd.MarkFlagRequired("output")
@@ -105,6 +157,7 @@ Use --subaccount to derive a deterministic subaccount key first.`,
 }
 
 func runWithOptions(keyPath, subaccount, alias, output, dn string, bits, validity int, reusePassphrase bool, storePassword, keyPassword string, stdin io.Reader) error {
+	format := formatForOutputPath(output)
 	if err := derive.ValidRSABits(bits); err != nil {
 		return fmt.Errorf("invalid --bits: %w", err)
 	}
@@ -134,30 +187,47 @@ func runWithOptions(keyPath, subaccount, alias, output, dn string, bits, validit
 
 	storePassword, keyPassword, err = resolvePasswords(storePassword, keyPassword, reusePassphrase, material.SourcePass)
 	if err != nil {
-		return fmt.Errorf("could not read JKS passphrase: %w", err)
+		return fmt.Errorf("could not read keystore passphrase: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Deriving %d-bit RSA keypair for JKS alias %q (this may take a moment)...\n", bits, alias)
+	fmt.Fprintf(os.Stderr, "Deriving %d-bit RSA keypair for %s alias %q (this may take a moment)...\n", bits, format.label(), alias)
 
 	pair, err := derive.JKS(material.Key, alias, bits, validity, parsedDN)
 	if err != nil {
 		return fmt.Errorf("could not derive JKS keypair: %w", err)
 	}
 
+	keystoreBytes, err := encodeKeystore(pair, format, storePassword, keyPassword)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(output, keystoreBytes, keystoreMode); err != nil {
+		return fmt.Errorf("could not write %s keystore to %s: %w", format.label(), output, err)
+	}
+
+	fmt.Fprintf(os.Stderr, "%s keystore written to: %s\n", format.label(), output)
+	fmt.Fprintf(os.Stderr, "Verify with: %s -alias %s\n", format.keytoolListCommand(output), alias)
+
+	printSigningSecrets(output, alias, storePassword, keyPassword, keystoreBytes, format)
+	return nil
+}
+
+// encodeKeystore encodes the derived keypair in the requested format.
+func encodeKeystore(pair *derive.JKSKeypair, format keystoreFormat, storePassword, keyPassword string) ([]byte, error) {
+	if format == formatPKCS12 {
+		pfxBytes, err := derive.EncodePKCS12(pair, []byte(storePassword))
+		if err != nil {
+			return nil, fmt.Errorf("could not encode PKCS#12 keystore: %w", err)
+		}
+		return pfxBytes, nil
+	}
+
 	jksBytes, err := derive.EncodeJKSWithPasswords(pair, []byte(storePassword), []byte(keyPassword))
 	if err != nil {
-		return fmt.Errorf("could not encode JKS keystore: %w", err)
+		return nil, fmt.Errorf("could not encode JKS keystore: %w", err)
 	}
-
-	if err := os.WriteFile(output, jksBytes, keystoreMode); err != nil {
-		return fmt.Errorf("could not write JKS keystore to %s: %w", output, err)
-	}
-
-	fmt.Fprintf(os.Stderr, "JKS keystore written to: %s\n", output)
-	fmt.Fprintf(os.Stderr, "Verify with: keytool -list -keystore %s -alias %s\n", output, alias)
-
-	printSigningSecrets(output, alias, storePassword, keyPassword, jksBytes)
-	return nil
+	return jksBytes, nil
 }
 
 func resolvePasswords(storePassword, keyPassword string, reusePassphrase bool, sourcePass []byte) (string, string, error) {
@@ -216,28 +286,28 @@ func readPassword() ([]byte, error) {
 	return pass, nil
 }
 
-func printSigningSecrets(keystorePath, alias, storePassword, keyPassword string, jksBytes []byte) {
-	jksBase64 := base64.StdEncoding.EncodeToString(jksBytes)
+func printSigningSecrets(keystorePath, alias, storePassword, keyPassword string, keystoreBytes []byte, format keystoreFormat) {
+	keystoreBase64 := base64.StdEncoding.EncodeToString(keystoreBytes)
 
 	out := termout.New()
 	out.Section("Android signing secrets")
 	out.Blank()
 	out.NamedSecret(
 		"ANDROID_KEYSTORE_BASE64",
-		jksBase64,
-		"is the JKS file — base64-encoded contents of "+keystorePath,
+		keystoreBase64,
+		"is the "+format.label()+" file — base64-encoded contents of "+keystorePath,
 		true,
 	)
 	out.NamedSecret(
 		"ANDROID_KEY_ALIAS",
 		alias,
-		"chosen when you created the keystore — set via --alias; verify with keytool -list -keystore "+keystorePath,
+		"chosen when you created the keystore — set via --alias; verify with "+format.keytoolListCommand(keystorePath),
 		false,
 	)
 	out.NamedSecret(
 		"ANDROID_STORE_PASSWORD",
 		storePassword,
-		"password you set when creating the keystore — required to open the file; cannot be extracted from the JKS",
+		"password you set when creating the keystore — required to open the file; cannot be extracted from the "+format.label(),
 		true,
 	)
 	out.NamedSecret(

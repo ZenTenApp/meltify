@@ -21,7 +21,7 @@ Seedify is one CLI with many flags. Meltify is a family of sibling binaries (`cm
 | `--to-dnssec` | `meltify-dnssec` (`--domain` / `--algorithm` / `--ksk` / `--zsk`) |
 | `--to-i2p` | `meltify-i2p` (default prints b32 + secrets; `--output` writes `keys.dat`) |
 | `--to-wireguard` | `meltify-wireguard` (wg base64 static keypair on stdout) |
-| `--to-jks` | `meltify-jks` (`--alias` / `--output` / `--dn` / `--validity` / `--store-password` / `--key-password`; writes a `.jks`) |
+| `--to-jks` | `meltify-jks` (`--alias` / `--output` / `--dn` / `--validity` / `--store-password` / `--key-password`; writes a `.jks`, or a PKCS#12 `.p12` when `--output` ends in `.p12`/`.pfx`/`.pkcs12`) |
 | BIP48 1-of-1 multisig extended keys + address | `meltify-multisig` (`--script-type` / `--slip132` / `--label`) |
 | `--bip39-passphrase` | `meltify-info` / `meltify-multisig` / `meltify-bitchat` / `meltify-monero` (Cake section) |
 

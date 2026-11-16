@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ZenTenApp/meltify/internal/pkcs12"
 	keystore "github.com/pavlo-v-chernykh/keystore-go/v4"
 )
 
@@ -203,6 +204,38 @@ func EncodeJKSWithPasswords(pair *JKSKeypair, storePassword, keyPassword []byte)
 	}
 
 	return buf.Bytes(), nil
+}
+
+// EncodePKCS12 writes the keypair as a password-protected PKCS#12 (P12/PFX)
+// keystore holding one entry, friend-named with the pair's alias.
+//
+// The encryption salts and IVs are drawn from a deterministic stream seeded by
+// the alias and source key, so identical inputs always produce identical bytes.
+// PKCS#12 has a single password protecting both the keystore and its key entry.
+func EncodePKCS12(pair *JKSKeypair, password []byte) ([]byte, error) {
+	if pair == nil {
+		return nil, errors.New("JKS keypair cannot be nil")
+	}
+	if len(password) == 0 {
+		return nil, errors.New("PKCS#12 password cannot be empty")
+	}
+
+	certificate, err := x509.ParseCertificate(pair.CertificateDER)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse JKS certificate for PKCS#12 export: %w", err)
+	}
+
+	saltRand, err := newDeterministicReader(pair.saltSeed[:])
+	if err != nil {
+		return nil, fmt.Errorf("could not create PKCS#12 salt generator: %w", err)
+	}
+
+	pfx, err := pkcs12.Encode(saltRand, pair.PrivateKey, certificate, pair.Alias, string(password))
+	if err != nil {
+		return nil, fmt.Errorf("could not encode PKCS#12: %w", err)
+	}
+
+	return pfx, nil
 }
 
 // ParseJKSDistinguishedName parses a comma-separated distinguished name string

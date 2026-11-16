@@ -257,18 +257,25 @@ It supports `--subaccount` / `-s` and `--bip39-passphrase` / `-e` (NIP-06 `nsec`
 
 ## Java KeyStore
 
-`meltify-jks` loads an Ed25519 OpenSSH private key and derives a deterministic RSA private key plus self-signed X.509 certificate, then writes a password-protected Java KeyStore (`.jks`) to `--output` (`0600`). `--alias` and `--output` are required; `--dn` defaults to `CN=<alias>` and `--validity` to 10000 days. It also prints the Android signing secrets (keystore base64, alias, store password, key password) for CI/CD.
+`meltify-jks` loads an Ed25519 OpenSSH private key and derives a deterministic RSA private key plus self-signed X.509 certificate, then writes a password-protected keystore to `--output` (`0600`). `--alias` and `--output` are required; `--dn` defaults to `CN=<alias>` and `--validity` to 10000 days. It also prints the Android signing secrets (keystore base64, alias, store password, key password) for CI/CD.
+
+The keystore format follows the `--output` extension: `.p12`, `.pfx`, and `.pkcs12` write a PKCS#12 keystore, every other path writes a Java KeyStore (`.jks`). Both formats are accepted by Android Gradle Plugin signing configs, and the alias is preserved in both (`keytool` reads it from the PKCS#12 friendly name).
 
 ```sh
 meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks
+meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.p12
 meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --dn "CN=Zenten, OU=Mobile, O=ZenTen"
 ```
 
-The keystore is always password-protected: enter a new passphrase, pass `--reuse-passphrase` to reuse the SSH key passphrase, or supply `--store-password` (mutually exclusive with `--reuse-passphrase`). The key entry defaults to the store password; use `--key-password` to set a separate password. Both passwords must be non-empty. These flags do not replace the SSH key passphrase prompt.
+The keystore is always password-protected: enter a new passphrase, pass `--reuse-passphrase` to reuse the SSH key passphrase, or supply `--store-password` (mutually exclusive with `--reuse-passphrase`). These flags do not replace the SSH key passphrase prompt.
+
+A Java KeyStore keeps a separate key-entry password: the key entry defaults to the store password, and `--key-password` sets a different one. PKCS#12 has a single password for the keystore and its key entry, so `--key-password` is rejected for `.p12` output. All passwords must be non-empty.
 
 ```bash
 meltify-jks ~/.ssh/id_ed25519 --alias zenten --output zenten-release.jks --store-password "$STORE_PASSWORD" --key-password "$KEY_PASSWORD"
 ```
+
+Both formats are deterministic: the same key, alias, and bits always produce the same keystore bytes. PKCS#12 files use PBES2 with PBKDF2-HMAC-SHA-256 and AES-256-CBC (readable by OpenSSL 1.1.1+ and Java 12+).
 
 Password flags can expose secrets in shell history and process listings; prefer the interactive prompt when possible.
 

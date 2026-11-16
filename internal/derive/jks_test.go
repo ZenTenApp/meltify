@@ -3,12 +3,14 @@ package derive
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/hex"
 	"testing"
 
 	keystore "github.com/pavlo-v-chernykh/keystore-go/v4"
+	"software.sslmate.com/src/go-pkcs12"
 )
 
 func TestJKSUsesFixedEpoch(t *testing.T) {
@@ -241,5 +243,69 @@ func TestEncodeJKSRoundTrip(t *testing.T) {
 	assertEq(t, "certificate CN", cert.Subject.CommonName, "Zenten")
 	if cert.NotAfter.Sub(pair.NotAfter) != 0 {
 		t.Fatalf("certificate NotAfter = %v, want %v", cert.NotAfter, pair.NotAfter)
+	}
+}
+
+func TestEncodePKCS12RoundTrip(t *testing.T) {
+	t.Parallel()
+	pair := goldenJKSKeypair(t)
+	password := GoldenJKS2048Password
+
+	first, err := EncodePKCS12(pair, []byte(password))
+	if err != nil {
+		t.Fatalf("EncodePKCS12: %v", err)
+	}
+	second, err := EncodePKCS12(pair, []byte(password))
+	if err != nil {
+		t.Fatalf("EncodePKCS12 (second): %v", err)
+	}
+	if !bytes.Equal(first, second) {
+		t.Fatal("encoded PKCS#12 bytes differ for identical inputs")
+	}
+
+	privateKey, certificate, caCerts, err := pkcs12.DecodeChain(first, password)
+	if err != nil {
+		t.Fatalf("decode PKCS#12: %v", err)
+	}
+	if len(caCerts) != 0 {
+		t.Fatalf("CA certificate count = %d, want 0", len(caCerts))
+	}
+
+	rsaKey, ok := privateKey.(*rsa.PrivateKey)
+	if !ok {
+		t.Fatalf("decoded key type = %T, want *rsa.PrivateKey", privateKey)
+	}
+	if rsaKey.D.Cmp(pair.PrivateKey.D) != 0 || rsaKey.N.Cmp(pair.PrivateKey.N) != 0 {
+		t.Fatal("decoded private key does not match derived key")
+	}
+	if !bytes.Equal(certificate.Raw, pair.CertificateDER) {
+		t.Fatal("decoded certificate does not match derived certificate")
+	}
+
+	// The alias is only visible through the friendlyName attribute, which the
+	// entry must carry so keytool and Android signing configurations can find it.
+	blocks, err := pkcs12.ToPEM(first, password)
+	if err != nil {
+		t.Fatalf("ToPEM: %v", err)
+	}
+	if len(blocks) != 2 {
+		t.Fatalf("PEM block count = %d, want 2", len(blocks))
+	}
+	for _, block := range blocks {
+		if got := block.Headers["friendlyName"]; got != GoldenJKSAlias {
+			t.Fatalf("friendlyName = %q, want %q", got, GoldenJKSAlias)
+		}
+	}
+}
+
+func TestEncodePKCS12RejectsBadInput(t *testing.T) {
+	t.Parallel()
+	pair := goldenJKSKeypair(t)
+
+	if _, err := EncodePKCS12(nil, []byte("secret")); err == nil {
+		t.Fatal("EncodePKCS12(nil) succeeded, want error")
+	}
+	if _, err := EncodePKCS12(pair, nil); err == nil {
+		t.Fatal("EncodePKCS12 with empty password succeeded, want error")
 	}
 }

@@ -20,7 +20,7 @@ func TestPrintSigningSecrets(t *testing.T) {
 
 	jksBytes := []byte{0xfe, 0xed, 0xfe, 0xed, 0x00}
 	out := captureStdout(t, func() {
-		printSigningSecrets(path, alias, storePassword, keyPassword, jksBytes)
+		printSigningSecrets(path, alias, storePassword, keyPassword, jksBytes, formatJKS)
 	})
 
 	want := "[Android signing secrets]\n" +
@@ -104,9 +104,14 @@ func TestPasswordFlagsValidation(t *testing.T) {
 		{"empty store", []string{"--store-password="}, "--store-password cannot be empty"},
 		{"empty key", []string{"--key-password="}, "--key-password cannot be empty"},
 		{"conflicting store", []string{"--store-password=store-secret", "--reuse-passphrase"}, "none of the others can be"},
+		{"key password with pkcs12", []string{"--key-password=key-secret"}, "--key-password is not supported for PKCS#12 keystores"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			args := append([]string{"/no/such/key", "--alias", "zenten", "--output", filepath.Join(t.TempDir(), "out.jks")}, tt.flags...)
+			outputName := "out.jks"
+			if strings.Contains(tt.name, "pkcs12") {
+				outputName = "out.p12"
+			}
+			args := append([]string{"/no/such/key", "--alias", "zenten", "--output", filepath.Join(t.TempDir(), outputName)}, tt.flags...)
 			err := Execute(args, strings.NewReader(""), cliutil.VersionInfo{})
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("error = %v, want containing %q", err, tt.want)
@@ -173,4 +178,48 @@ func captureStdout(t *testing.T, fn func()) string {
 		t.Fatalf("read pipe: %v", readErr)
 	}
 	return string(data)
+}
+
+func TestFormatForOutputPath(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		path string
+		want keystoreFormat
+	}{
+		{"out.jks", formatJKS},
+		{"out.p12", formatPKCS12},
+		{"out.P12", formatPKCS12},
+		{"out.pfx", formatPKCS12},
+		{"out.pkcs12", formatPKCS12},
+		{"out.keystore", formatJKS},
+		{"out", formatJKS},
+		{"", formatJKS},
+	}
+	for _, tt := range tests {
+		if got := formatForOutputPath(tt.path); got != tt.want {
+			t.Fatalf("formatForOutputPath(%q) = %v, want %v", tt.path, got, tt.want)
+		}
+	}
+}
+
+func TestPrintSigningSecretsPKCS12(t *testing.T) {
+	const (
+		path          = "zenten-release.p12"
+		alias         = "zenten"
+		storePassword = "changeit"
+	)
+
+	out := captureStdout(t, func() {
+		printSigningSecrets(path, alias, storePassword, storePassword, []byte{0x30, 0x00}, formatPKCS12)
+	})
+
+	for _, want := range []string{
+		"(is the PKCS#12 file — base64-encoded contents of " + path + ")",
+		"(chosen when you created the keystore — set via --alias; verify with keytool -list -storetype PKCS12 -keystore " + path + ")",
+		"cannot be extracted from the PKCS#12",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("stdout missing %q:\n%s", want, out)
+		}
+	}
 }
